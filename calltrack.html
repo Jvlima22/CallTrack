@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CallTrack</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a5cc2'/%3E%3Cpath d='M7 16h3l2-6 4 12 3-9 2 3h4' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f2f4f7; --panel:#ffffff; --panel-2:#f7f9fb; --border:#e1e6ed; --border-strong:#cfd6df;
+  --text:#18212f; --muted:#5f6b7a;
+  --accent:#0a5cc2; --accent-soft:#e7effb; --on-accent:#fff;
+  --danger:#c62828; --danger-soft:#fdecec;
+  --ok:#1b7f4a; --ok-soft:#e4f4eb; --warn:#9a5700; --warn-soft:#fdf0dd; --info:#5b3cc4; --info-soft:#efeafd;
+  --neutral:#475467; --neutral-soft:#eef1f5;
+  --wave:#c5d0de; --wave-played:#0a5cc2; --mark:#d97706;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.07);
+  --radius:10px;
+  color-scheme: light;
+}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --panel:#161d26; --panel-2:#1b242f; --border:#26313e; --border-strong:#344150;
+  --text:#e5eaf0; --muted:#95a1b0;
+  --accent:#5b9dff; --accent-soft:#1a2b44; --on-accent:#08111f;
+  --danger:#ff6b6b; --danger-soft:#3a1f23; --ok:#4cc38a; --ok-soft:#15302a; --warn:#f0a940; --warn-soft:#382a15; --info:#a996ff; --info-soft:#2a2447;
+  --neutral:#a8b3c1; --neutral-soft:#222c38;
+  --wave:#334050; --wave-played:#5b9dff; --mark:#f0a940;
+  --shadow:none;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+svg{flex:none}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+kbd,.kbd{font:11px/1 ui-monospace,Consolas,monospace;padding:3px 5px;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;background:var(--panel-2);color:var(--muted)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--panel-2)}
+.btn:focus-visible,.item:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.icon{width:34px;padding:0;justify-content:center}
+.btn.text-danger{color:var(--danger)}
+.btn kbd{background:transparent;color:inherit;border-color:currentColor;opacity:.7}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:20px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;white-space:nowrap}
+.brand .logo{width:32px;height:32px;border-radius:8px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.brand small{display:block;font-weight:400;font-size:11.5px;color:var(--muted)}
+.stats{display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;padding:4px 14px;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);min-width:108px;cursor:default;text-align:left}
+.stat b{font-size:17px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11.5px;color:var(--muted)}
+button.stat{cursor:pointer}
+button.stat:hover{border-color:var(--border-strong)}
+.stat.warn b{color:var(--warn)}
+.top-actions{display:flex;gap:6px;align-items:center}
+
+/* Layout */
+main{display:grid;grid-template-columns:380px 1fr;min-height:0}
+.col-list{border-right:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.col-main{overflow:auto;min-height:0;padding:18px 22px 40px}
+
+/* Filters */
+.filters{padding:12px;border-bottom:1px solid var(--border);display:grid;gap:8px}
+.search{position:relative}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.search input{width:100%;height:36px;padding:0 10px 0 34px;border:1px solid var(--border-strong);border-radius:8px;background:var(--panel-2)}
+.filter-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.filter-row select{height:32px;border:1px solid var(--border);border-radius:7px;background:var(--panel);padding:0 6px;font-size:12.5px;min-width:0}
+.list-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:0 2px}
+.list{flex:1;overflow:auto;padding:4px 8px 12px}
+.day{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:12px 6px 6px;position:sticky;top:0;background:var(--panel);z-index:1}
+.item{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:9px;padding:9px 10px;cursor:pointer;margin-bottom:2px}
+.item:hover{background:var(--panel-2)}
+.item.sel{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.item-top{display:flex;align-items:center;gap:8px}
+.item-time{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px}
+.item-title{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-sub{color:var(--muted);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-meta{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.item-meta svg{vertical-align:-2px}
+.list-foot{border-top:1px solid var(--border);padding:8px 12px;font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.empty-list{padding:40px 16px;text-align:center;color:var(--muted)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.info{background:var(--info-soft);color:var(--info)}
+.badge.neutral{background:var(--neutral-soft);color:var(--neutral)}
+.badge.danger{background:var(--danger-soft);color:var(--danger)}
+
+/* Cards */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card-title{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:12px}
+.card-title .spacer{flex:1}
+.grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:start}
+.grid-2 > .card{margin-bottom:0}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.form-grid .span2{grid-column:span 2}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+label.block{margin-top:12px}
+input[type=text],input:not([type]),select,textarea{font-weight:400;font-size:14px;color:var(--text)}
+.form-grid input,.form-grid select,label.block textarea,.mark-row input,.settings input[type=text]{height:36px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:0 10px}
+label.block textarea{height:auto;padding:8px 10px;resize:vertical;line-height:1.5}
+.field-label{font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+.check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px}
+label.check{flex-direction:row;align-items:center;gap:8px;font-weight:400;font-size:13.5px;color:var(--text);padding:5px 8px;border-radius:6px;cursor:pointer}
+label.check:hover{background:var(--panel-2)}
+label.check input{width:16px;height:16px;accent-color:var(--accent)}
+.history{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:12px;padding:8px 10px;border-radius:8px;background:var(--info-soft);color:var(--info);font-size:12.5px}
+.history a{color:inherit;font-weight:600}
+
+/* Live call */
+.live-head{position:sticky;top:-18px;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;margin:-4px 0 14px;border-radius:var(--radius);background:var(--panel);border:1px solid color-mix(in srgb,var(--danger) 45%,var(--border));box-shadow:var(--shadow)}
+.rec-dot{width:12px;height:12px;border-radius:50%;background:var(--danger);animation:pulse 1.4s infinite}
+.paused .rec-dot{animation:none;background:var(--warn)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--danger) 60%,transparent)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.live-title{font-weight:700}
+.live-timer{font:600 26px/1 ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;min-width:96px}
+.meter{width:110px;height:8px;border-radius:4px;background:var(--panel-2);border:1px solid var(--border);overflow:hidden}
+.meter div{height:100%;width:0;background:var(--ok);transition:width .08s}
+.live-head .spacer{flex:1}
+.mark-row{display:flex;gap:8px}
+.mark-row input{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--border-strong);background:var(--panel-2);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.marks{list-style:none;margin:10px 0 0;padding:0}
+.marks li{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px}
+.marks li:hover{background:var(--panel-2)}
+.marks .t{font:600 12.5px ui-monospace,Consolas,monospace;color:var(--mark);min-width:44px}
+.marks .l{flex:1}
+.marks .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:5px}
+.marks .x:hover{color:var(--danger);background:var(--danger-soft)}
+.marks.clickable li{cursor:pointer}
+.marks-empty{color:var(--muted);font-size:13px;padding:6px 8px}
+.live-banner{display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:14px;border-radius:var(--radius);background:var(--danger-soft);color:var(--danger);font-weight:600;cursor:pointer;border:0;width:100%;text-align:left}
+.live-banner .live-timer{font-size:16px;min-width:0}
+
+/* Detail */
+.detail-head{display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap}
+.detail-head h2{margin:2px 0 4px;font-size:21px}
+.detail-head .reg{font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
+.detail-head .grow{flex:1;min-width:240px}
+.head-actions{display:flex;gap:6px;align-items:center}
+.status-select{height:34px;border-radius:8px;border:1px solid var(--border-strong);background:var(--panel);padding:0 8px;font-weight:600}
+
+/* Player */
+.wave-wrap{position:relative;height:96px;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);cursor:pointer;overflow:hidden}
+.wave-wrap canvas{width:100%;height:100%;display:block}
+.wave-msg{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;pointer-events:none}
+.wave-hover{position:absolute;top:4px;padding:2px 6px;border-radius:4px;background:var(--text);color:var(--panel);font:11px ui-monospace,Consolas,monospace;pointer-events:none;transform:translateX(-50%);display:none}
+.controls{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.play{width:44px;height:44px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;cursor:pointer}
+.play:hover{filter:brightness(1.08)}
+.ptime{font:13px ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;margin-left:6px}
+.controls .spacer{flex:1}
+.rate{display:flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+.rate button{border:0;background:var(--panel);padding:6px 9px;font-size:12.5px;cursor:pointer;border-right:1px solid var(--border)}
+.rate button:last-child{border-right:0}
+.rate button.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.no-audio{padding:18px;text-align:center;color:var(--muted);background:var(--panel-2);border-radius:8px;border:1px dashed var(--border-strong)}
+pre.report{margin:0;white-space:pre-wrap;font:13px/1.55 ui-monospace,Consolas,monospace;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:520px;overflow:auto}
+.hint{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* Empty state */
+.empty{max-width:640px;margin:8vh auto 0;text-align:center}
+.empty .big{width:64px;height:64px;border-radius:16px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin:0 auto 14px}
+.empty h2{margin:0 0 6px}
+.shortcuts{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;text-align:left;max-width:380px;margin:22px auto 0;font-size:13px;align-items:center}
+.shortcuts kbd{justify-self:end}
+
+/* Dialog + toast */
+dialog{border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text);padding:0;width:min(520px,92vw);box-shadow:0 20px 50px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(10,15,25,.45)}
+.settings{padding:20px;display:grid;gap:14px}
+.settings h3{margin:0}
+.radio{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-weight:400;color:var(--text);flex-direction:row}
+.radio input{margin-top:3px;accent-color:var(--accent)}
+.radio b{display:block}
+.radio span{color:var(--muted);font-size:12.5px}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px}
+.toasts{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:grid;gap:8px;z-index:50}
+.toast{padding:10px 16px;border-radius:9px;background:var(--text);color:var(--panel);box-shadow:0 8px 24px rgba(0,0,0,.2);font-size:13.5px;animation:tin .2s}
+.toast.warn{background:var(--warn);color:#fff}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}}
+[hidden]{display:none!important}
+
+@media (max-width:1100px){ .grid-2{grid-template-columns:1fr} .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:860px){
+  body{overflow:auto;display:block}
+  main{grid-template-columns:1fr}
+  .col-list{max-height:55vh;border-right:0;border-bottom:1px solid var(--border)}
+  .col-main{padding:14px 16px 40px}
+  .topbar{flex-wrap:wrap;gap:10px}
+  .stats{justify-content:flex-start;order:3;width:100%}
+  .form-grid,.check-grid{grid-template-columns:1fr}
+  .form-grid .span2{grid-column:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" id="logo"></div>
+    <div>Call<span style="color:var(--accent)">Track</span><small>Registro e histórico de chamadas · local</small></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="top-actions">
+    <button class="btn icon ghost" id="btnTheme" title="Alternar tema claro/escuro"></button>
+    <button class="btn icon ghost" id="btnSettings" title="Configurações"></button>
+    <button class="btn primary" id="btnStart"></button>
+  </div>
+</header>
+
+<main>
+  <aside class="col-list">
+    <div class="filters">
+      <div class="search"><span id="icoSearch"></span><input id="q" placeholder="Buscar protocolo, cliente, placa, observações…  ( / )" autocomplete="off"></div>
+      <div class="filter-row">
+        <select id="fPeriodo" title="Período">
+          <option value="hoje">Hoje</option><option value="7" selected>7 dias</option><option value="30">30 dias</option><option value="todos">Tudo</option>
+        </select>
+        <select id="fCat" title="Categoria"><option value="">Categorias</option></select>
+        <select id="fStatus" title="Status"><option value="">Status</option><option value="aberto">Em aberto</option></select>
+      </div>
+      <div class="list-meta"><span id="count"></span><span id="countDur"></span></div>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="list-foot" id="storage"></div>
+  </aside>
+
+  <section class="col-main" id="main">
+    <button class="live-banner" id="liveBanner" hidden></button>
+    <div id="livePanel" hidden></div>
+    <div id="detailPanel"></div>
+  </section>
+</main>
+
+<dialog id="dlgSettings">
+  <form class="settings" method="dialog" id="settingsForm">
+    <h3>Configurações</h3>
+    <label>Seu nome (aparece no relatório)<input type="text" name="atendente" autocomplete="off"></label>
+    <div>
+      <div class="field-label" style="margin-top:0">Fonte de áudio da gravação</div>
+      <div style="display:grid;gap:8px">
+        <label class="radio"><input type="radio" name="audioMode" value="mic"><div><b>Somente microfone</b><span>Grava o que o microfone capta. Use se a voz do cliente sai pela caixa de som ou se a ligação é em outro aparelho.</span></div></label>
+        <label class="radio"><input type="radio" name="audioMode" value="mix"><div><b>Microfone + áudio do computador</b><span>Para ligações pelo softphone no PC (fone de ouvido). A cada chamada o navegador pede para escolher a tela: marque <b>"Compartilhar áudio do sistema"</b>.</span></div></label>
+      </div>
+    </div>
+    <div class="dlg-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancelar</button>
+      <button class="btn primary" value="ok">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ===================== Configuração de negócio ===================== */
+const CATEGORIAS = {
+  'Auto': ['Guincho/Reboque','Pane mecânica','Pane elétrica/bateria','Pane seca','Troca de pneu','Chaveiro auto','Colisão/Sinistro','Roubo/Furto','Vidros/Faróis'],
+  'Residência': ['Chaveiro','Encanador','Eletricista','Desentupimento','Vidraceiro','Danos elétricos'],
+  'Outros': ['Informação','Acompanhamento de serviço','Reclamação','Cancelamento','Outro']
+};
+const STATUS = ['Pendente','Aguardando prestador','Encaminhado','Resolvido'];
+const STATUS_CLASS = {'Resolvido':'ok','Pendente':'warn','Aguardando prestador':'info','Encaminhado':'neutral'};
+const ABERTOS = ['Pendente','Aguardando prestador'];
+const PRIORIDADES = ['Normal','Alta','Urgente'];
+const QUICK_MARKS = ['Dados confirmados','Cliente em espera','Prestador acionado','Previsão informada','Transferência','Cliente insatisfeito'];
+const CHECK = {
+  'Guincho/Reboque': ['Local exato e ponto de referência','Veículo em local seguro','Destino do reboque','Nº de passageiros','Veículo rebaixado/blindado/4x4','Chave disponível no local'],
+  'Pane mecânica': ['Local exato e ponto de referência','Sintomas descritos','Veículo em local seguro','Necessidade de reboque avaliada'],
+  'Pane elétrica/bateria': ['Local exato e ponto de referência','Luzes do painel/partida verificadas','Veículo em local seguro'],
+  'Pane seca': ['Local exato e ponto de referência','Tipo de combustível','Veículo em local seguro'],
+  'Troca de pneu': ['Local exato e ponto de referência','Estepe em condições','Macaco e chave de roda disponíveis'],
+  'Chaveiro auto': ['Local exato e ponto de referência','Chave trancada, perdida ou quebrada','Documento do veículo disponível'],
+  'Colisão/Sinistro': ['Há feridos? (orientar SAMU 192 / 190)','Terceiros envolvidos','Boletim de ocorrência orientado','Necessidade de reboque','Fotos/documentos orientados'],
+  'Roubo/Furto': ['Boletim de ocorrência orientado','Data, hora e local do fato','Rastreador/bloqueio acionado'],
+  'Vidros/Faróis': ['Peça danificada identificada','Cidade de atendimento','Disponibilidade de horário'],
+  'Chaveiro': ['Endereço completo e referência','Tipo de porta/fechadura','Alguém no local'],
+  'Encanador': ['Endereço completo e referência','Tipo de vazamento/problema','Registro de água fechado'],
+  'Eletricista': ['Endereço completo e referência','Disjuntor verificado','Risco de choque/incêndio avaliado'],
+  'Desentupimento': ['Endereço completo e referência','Local do entupimento'],
+  'Vidraceiro': ['Endereço completo e referência','Tamanho/tipo do vidro','Risco de segurança no imóvel'],
+  'Danos elétricos': ['Endereço completo e referência','Equipamentos afetados','Data/hora da queda de energia'],
+  'Reclamação': ['Motivo registrado','Protocolo anterior informado','Encaminhamento explicado ao cliente']
+};
+function checklistFor(cat, tipo){
+  const base = ['Dados do cliente confirmados'];
+  if (cat !== 'Outros') base.push('Previsão de atendimento informada');
+  return [...base, ...(CHECK[tipo] || [])];
+}
+
+/* ===================== Ícones ===================== */
+const I = (d, s=18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  phone: s => I('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>', s),
+  mic: s => I('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>', s),
+  play: s => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10.2-6.5a1 1 0 0 0 0-1.8L9.5 4.6A1 1 0 0 0 8 5.5z"/></svg>`,
+  pause: s => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`,
+  back: s => I('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', s),
+  fwd: s => I('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', s),
+  sun: s => I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', s),
+  moon: s => I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>', s),
+  gear: s => I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', s),
+  search: s => I('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>', s),
+  copy: s => I('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', s),
+  trash: s => I('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>', s),
+  edit: s => I('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', s),
+  flag: s => I('<path d="M4 22V4a1 1 0 0 1 1-1h12l-2 5 2 5H5"/>', s),
+  history: s => I('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>', s),
+  lock: s => I('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', s),
+  stop: s => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
+};
+
+/* ===================== Utilitários ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const digits = s => String(s || '').replace(/\D/g, '');
+const alnum = s => String(s || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+const opts = (list, sel) => list.map(v => `<option${v === sel ? ' selected' : ''}>${esc(v)}</option>`).join('');
+function fmtDur(sec){
+  sec = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, p = n => String(n).padStart(2, '0');
+  return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+}
+const fmtHora = d => new Date(d).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+const fmtData = d => new Date(d).toLocaleDateString('pt-BR');
+const dayKey = d => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`; };
+function dayLabel(d){
+  const k = dayKey(d), today = dayKey(Date.now()), y = dayKey(Date.now() - 864e5);
+  if (k === today) return 'Hoje';
+  if (k === y) return 'Ontem';
+  return new Date(d).toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'2-digit'});
+}
+function toast(msg, kind=''){
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind; el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), kind === 'warn' ? 5000 : 2600);
+}
+const statusBadge = s => `<span class="badge ${STATUS_CLASS[s] || 'neutral'}">${esc(s)}</span>`;
+
+/* ===================== Configurações (por usuário, neste navegador) ===================== */
+const settings = (() => {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem('cc-settings') || '{}'); } catch (e) {}
+  return Object.assign({atendente:'', audioMode:'mic', theme:null}, s);
+})();
+function saveSettings(){ try { localStorage.setItem('cc-settings', JSON.stringify(settings)); } catch (e) {} }
+
+/* ===================== Banco local (IndexedDB) ===================== */
+const DB = {
+  db: null,
+  open(){
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('central-chamados', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('calls', {keyPath:'id'});
+        d.createObjectStore('audio', {keyPath:'id'});
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(store, mode, fn){
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode);
+      const req = fn(t.objectStore(store));
+      t.oncomplete = () => res(req && req.result);
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error);
+    });
+  },
+  put(store, v){ return this.tx(store, 'readwrite', s => s.put(v)); },
+  get(store, id){ return this.tx(store, 'readonly', s => s.get(id)); },
+  all(store){ return this.tx(store, 'readonly', s => s.getAll()); },
+  del(store, id){ return this.tx(store, 'readwrite', s => s.delete(id)); },
+};
+
+/* ===================== Estado ===================== */
+let calls = [];
+let selectedId = null;
+let live = null;     // chamada em andamento
+let player = null;   // player do chamado aberto
+let view = 'empty';  // 'empty' | 'detail' | 'live'
+let editing = false;
+
+/* ===================== Relatório ===================== */
+function buildReport(c){
+  const L = [];
+  L.push('RELATÓRIO DE ATENDIMENTO');
+  L.push(`Registro: ${c.registro}${c.protocolo ? ' | Protocolo: ' + c.protocolo : ''}`);
+  L.push(`Data: ${fmtData(c.inicio)} | ${fmtHora(c.inicio)} – ${fmtHora(c.fim)} (duração ${fmtDur(c.duracao)})`);
+  L.push(`Atendimento: ${c.categoria} – ${c.tipo} | Prioridade: ${c.prioridade}`);
+  const cli = [c.cliente && 'Cliente: ' + c.cliente, c.telefone && 'Tel: ' + c.telefone, c.identificador && 'Placa/Apólice: ' + c.identificador].filter(Boolean);
+  if (cli.length) L.push(cli.join(' | '));
+  if (c.local) L.push('Local: ' + c.local);
+  L.push('', 'RESUMO', (c.notas || '').trim() || '(sem observações)');
+  const items = checklistFor(c.categoria, c.tipo);
+  if (items.length){
+    L.push('', 'CHECKLIST');
+    items.forEach(i => L.push(`${c.checklist && c.checklist[i] ? '[x]' : '[ ]'} ${i}`));
+  }
+  if (c.marcadores && c.marcadores.length){
+    L.push('', 'LINHA DO TEMPO');
+    c.marcadores.forEach(m => L.push(`[${fmtDur(m.t)}] ${m.label}`));
+  }
+  L.push('', `STATUS: ${c.status}`);
+  if (c.atendente) L.push(`Atendente: ${c.atendente}`);
+  return L.join('\n');
+}
+
+/* ===================== Formulário (novo e edição) ===================== */
+function formHTML(c){
+  const cat = c.categoria || 'Auto';
+  return `
+  <div class="form-grid">
+    <label>Protocolo Porto<input name="protocolo" value="${esc(c.protocolo)}" placeholder="Nº do protocolo" autocomplete="off"></label>
+    <label>Prioridade<select name="prioridade">${opts(PRIORIDADES, c.prioridade || 'Normal')}</select></label>
+    <label>Status<select name="status">${opts(STATUS, c.status || 'Pendente')}</select></label>
+    <label>Cliente / segurado<input name="cliente" value="${esc(c.cliente)}" autocomplete="off"></label>
+    <label>Telefone<input name="telefone" value="${esc(c.telefone)}" inputmode="tel" autocomplete="off"></label>
+    <label>Placa / apólice<input name="identificador" value="${esc(c.identificador)}" autocomplete="off"></label>
+    <label>Categoria<select name="categoria">${opts(Object.keys(CATEGORIAS), cat)}</select></label>
+    <label class="span2">Tipo de ocorrência<select name="tipo">${opts(CATEGORIAS[cat], c.tipo)}</select></label>
+    <label style="grid-column:1/-1">Local / endereço<input name="local" value="${esc(c.local)}" autocomplete="off"></label>
+  </div>
+  <div class="history" data-history hidden></div>
+  <div data-checklist></div>
+  <label class="block">Resumo / observações<textarea name="notas" rows="5" placeholder="O que o cliente relatou, o que foi feito, próximos passos…">${esc(c.notas)}</textarea></label>`;
+}
+function bindForm(root, c = {}, selfId = null){
+  const f = n => root.querySelector(`[name="${n}"]`);
+  const checks = {...(c.checklist || {})};
+  const renderChecks = () => {
+    root.querySelectorAll('[data-item]').forEach(el => checks[el.dataset.item] = el.checked);
+    const items = checklistFor(f('categoria').value, f('tipo').value);
+    root.querySelector('[data-checklist]').innerHTML =
+      `<div class="field-label">Checklist do atendimento</div><div class="check-grid">${items.map(i =>
+        `<label class="check"><input type="checkbox" data-item="${esc(i)}"${checks[i] ? ' checked' : ''}><span>${esc(i)}</span></label>`).join('')}</div>`;
+  };
+  f('categoria').addEventListener('change', () => { f('tipo').innerHTML = opts(CATEGORIAS[f('categoria').value]); renderChecks(); });
+  f('tipo').addEventListener('change', renderChecks);
+
+  // Histórico: mostra atendimentos anteriores do mesmo telefone ou placa/apólice
+  const hist = root.querySelector('[data-history]');
+  const runHist = () => {
+    const tel = digits(f('telefone').value), idf = alnum(f('identificador').value);
+    const hits = calls.filter(x => x.id !== selfId && (
+      (tel.length >= 8 && digits(x.telefone).slice(-8) === tel.slice(-8)) ||
+      (idf.length >= 5 && alnum(x.identificador) === idf)
+    )).sort((a, b) => b.inicio.localeCompare(a.inicio));
+    hist.hidden = !hits.length;
+    hist.innerHTML = hits.length ? `${ICON.history(16)}<span><b>${hits.length}</b> atendimento${hits.length > 1 ? 's' : ''} anterior${hits.length > 1 ? 'es' : ''}:</span>` +
+      hits.slice(0, 4).map(h => `<a href="#" data-open="${h.id}">${fmtData(h.inicio)} · ${esc(h.tipo)} (${esc(h.status)})</a>`).join('') : '';
+  };
+  ['telefone', 'identificador'].forEach(n => f(n).addEventListener('input', runHist));
+  renderChecks(); runHist();
+}
+function readForm(root){
+  const out = {};
+  root.querySelectorAll('[name]').forEach(el => out[el.name] = el.value.trim());
+  out.checklist = {};
+  root.querySelectorAll('[data-item]').forEach(el => out.checklist[el.dataset.item] = el.checked);
+  return out;
+}
+
+/* ===================== Topo / estatísticas ===================== */
+function renderStats(){
+  const tk = dayKey(Date.now());
+  const today = calls.filter(c => dayKey(c.inicio) === tk);
+  const tma = today.length ? today.reduce((a, c) => a + c.duracao, 0) / today.length : 0;
+  const res = today.filter(c => c.status === 'Resolvido').length;
+  const pend = calls.filter(c => ABERTOS.includes(c.status)).length;
+  $('#stats').innerHTML = `
+    <div class="stat"><b>${today.length}</b><span>Chamadas hoje</span></div>
+    <div class="stat"><b>${fmtDur(tma)}</b><span>TMA hoje</span></div>
+    <div class="stat"><b>${res}</b><span>Resolvidos hoje</span></div>
+    <button class="stat ${pend ? 'warn' : ''}" id="statPend" title="Ver chamados em aberto"><b>${pend}</b><span>Em aberto</span></button>`;
+  $('#statPend').onclick = () => { $('#fStatus').value = 'aberto'; $('#fPeriodo').value = 'todos'; renderList(); };
+}
+function renderStartBtn(){
+  $('#btnStart').innerHTML = live
+    ? `${ICON.mic(16)} Chamada em andamento`
+    : `${ICON.phone(16)} Iniciar chamada <kbd>F2</kbd>`;
+}
+function applyTheme(){
+  const t = settings.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = t;
+  $('#btnTheme').innerHTML = t === 'dark' ? ICON.sun(18) : ICON.moon(18);
+  if (player) drawWave();
+}
+
+/* ===================== Lista ===================== */
+function filtered(){
+  const q = norm($('#q').value).trim();
+  const per = $('#fPeriodo').value, cat = $('#fCat').value, st = $('#fStatus').value;
+  const now = Date.now(), tk = dayKey(now);
+  return calls.filter(c => {
+    if (per === 'hoje' && dayKey(c.inicio) !== tk) return false;
+    if (per !== 'hoje' && per !== 'todos' && now - new Date(c.inicio) > per * 864e5) return false;
+    if (cat && c.categoria !== cat) return false;
+    if (st === 'aberto' ? !ABERTOS.includes(c.status) : (st && c.status !== st)) return false;
+    if (q){
+      const hay = norm([c.registro, c.protocolo, c.cliente, c.telefone, c.identificador, c.tipo, c.categoria, c.local, c.notas, c.status,
+        ...(c.marcadores || []).map(m => m.label)].join(' '));
+      // números digitados com ou sem pontuação (telefone, protocolo) também casam
+      const hayDigits = digits(hay);
+      if (!q.split(/\s+/).every(w => hay.includes(w) || (/^[\d().\-]+$/.test(w) && digits(w).length >= 3 && hayDigits.includes(digits(w))))) return false;
+    }
+    return true;
+  }).sort((a, b) => b.inicio.localeCompare(a.inicio));
+}
+function renderList(){
+  const arr = filtered();
+  $('#count').textContent = `${arr.length} chamado${arr.length === 1 ? '' : 's'}`;
+  $('#countDur').textContent = arr.length ? `${fmtDur(arr.reduce((a, c) => a + c.duracao, 0))} em ligação` : '';
+  if (!arr.length){
+    $('#list').innerHTML = `<div class="empty-list">${calls.length ? 'Nenhum chamado encontrado com esses filtros.' : 'Nenhum chamado ainda.<br>Clique em <b>Iniciar chamada</b> ou tecle <kbd>F2</kbd>.'}</div>`;
+    return;
+  }
+  let html = '', lastDay = '';
+  for (const c of arr){
+    const dk = dayKey(c.inicio);
+    if (dk !== lastDay){ html += `<div class="day">${esc(dayLabel(c.inicio))}</div>`; lastDay = dk; }
+    const sub = [c.cliente, c.identificador, c.protocolo && 'Prot. ' + c.protocolo].filter(Boolean).join(' · ') || 'Cliente não informado';
+    html += `<button class="item${c.id === selectedId && view === 'detail' ? ' sel' : ''}" data-id="${c.id}">
+      <div class="item-top"><span class="item-time">${fmtHora(c.inicio)}</span><span class="item-title">${esc(c.tipo)}</span>${statusBadge(c.status)}</div>
+      <div class="item-sub">${esc(sub)}</div>
+      <div class="item-meta"><span>${esc(c.registro)}</span><span>${fmtDur(c.duracao)}</span>${c.hasAudio ? `<span title="Com gravação">${ICON.mic(12)}</span>` : ''}${c.prioridade !== 'Normal' ? `<span class="badge ${c.prioridade === 'Urgente' ? 'danger' : 'warn'}">${esc(c.prioridade)}</span>` : ''}</div>
+    </button>`;
+  }
+  $('#list').innerHTML = html;
+}
+async function renderStorage(){
+  let txt = 'Dados salvos só neste computador';
+  try {
+    if (navigator.storage && navigator.storage.estimate){
+      const e = await navigator.storage.estimate();
+      txt += ` · ${(e.usage / 1048576).toFixed(1)} MB usados`;
+    }
+  } catch (e) {}
+  $('#storage').innerHTML = `${ICON.lock(13)}<span>${txt}</span>`;
+}
+function renderAll(){ renderStats(); renderList(); renderStartBtn(); renderStorage(); }
+
+/* ===================== Painel direito: alternância ===================== */
+function setView(v){
+  view = v;
+  $('#livePanel').hidden = v !== 'live';
+  $('#detailPanel').hidden = v === 'live';
+  $('#liveBanner').hidden = !(live && v !== 'live');
+  if (v === 'live' && player) player.audio.pause();
+  renderList();
+}
+function renderEmpty(){
+  destroyPlayer();
+  selectedId = null; editing = false;
+  $('#detailPanel').innerHTML = `
+    <div class="empty">
+      <div class="big">${ICON.phone(30)}</div>
+      <h2>Pronto para atender</h2>
+      <p class="muted">Inicie uma chamada para gravar e registrar o atendimento, ou selecione um chamado na lista para ouvir a gravação e ver o relatório.</p>
+      <div class="shortcuts">
+        <kbd>F2</kbd><span>Iniciar chamada</span>
+        <kbd>F4</kbd><span>Marcar momento durante a chamada</span>
+        <kbd>F9</kbd><span>Finalizar e registrar a chamada</span>
+        <kbd>Espaço</kbd><span>Tocar / pausar gravação</span>
+        <kbd>J</kbd><span>Voltar 10 s  ·  <kbd>L</kbd> avançar 10 s</span>
+        <kbd>/</kbd><span>Buscar chamados</span>
+      </div>
+    </div>`;
+  setView('empty');
+}
+
+/* ===================== Chamada ao vivo ===================== */
+function elapsed(){
+  if (!live) return 0;
+  const now = live.pauseStart ?? Date.now();
+  return (now - live.startTs - live.pausedMs) / 1000;
+}
+async function startCall(){
+  if (live){ setView('live'); return; }
+  if (player) player.audio.pause();
+  if (!window.MediaRecorder || !navigator.mediaDevices){ toast('Este navegador não suporta gravação. Use Chrome ou Edge.', 'warn'); }
+  const L = { startTs: 0, pausedMs: 0, pauseStart: null, marks: [], chunks: [], streams: [], rec: null, ctx: null, analyser: null, pendingT: null, srcLabel: '' };
+  let mic = null, disp = null;
+  if (navigator.mediaDevices){
+    try {
+      mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
+      L.streams.push(mic);
+    } catch (e) { toast('Microfone não autorizado — o chamado será registrado sem gravação.', 'warn'); }
+    if (settings.audioMode === 'mix'){
+      try {
+        disp = await navigator.mediaDevices.getDisplayMedia({video: true, audio: true});
+        L.streams.push(disp);
+        if (!disp.getAudioTracks().length) toast('O áudio do computador não foi compartilhado — gravando só o microfone.', 'warn');
+      } catch (e) { toast('Compartilhamento cancelado — gravando só o microfone.', 'warn'); }
+    }
+  }
+  const sources = [mic, disp].filter(s => s && s.getAudioTracks().length);
+  if (sources.length && window.MediaRecorder){
+    try {
+      const ctx = new AudioContext();
+      const dest = ctx.createMediaStreamDestination();
+      dest.channelCount = 1;
+      const an = ctx.createAnalyser(); an.fftSize = 512;
+      sources.forEach(s => { const src = ctx.createMediaStreamSource(new MediaStream(s.getAudioTracks())); src.connect(dest); src.connect(an); });
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = new MediaRecorder(dest.stream, mime ? {mimeType: mime, audioBitsPerSecond: 32000} : undefined);
+      rec.ondataavailable = e => { if (e.data && e.data.size) L.chunks.push(e.data); };
+      rec.start(1000);
+      Object.assign(L, {ctx, rec, analyser: an, mime: rec.mimeType || mime || 'audio/webm'});
+      L.srcLabel = sources.length === 2 ? 'Gravando microfone + áudio do computador' : (sources[0] === disp ? 'Gravando áudio do computador' : 'Gravando microfone');
+      if (disp) disp.getTracks().forEach(t => t.addEventListener('ended', () => { if (live === L) toast('Compartilhamento de áudio do computador encerrado.', 'warn'); }));
+    } catch (e) {
+      console.error(e);
+      toast('Não foi possível iniciar a gravação — registrando sem áudio.', 'warn');
+      L.srcLabel = 'Sem gravação de áudio';
+    }
+  } else {
+    L.srcLabel = 'Sem gravação de áudio';
+  }
+  L.startTs = Date.now();
+  live = L;
+  renderLive();
+  setView('live');
+  renderStartBtn();
+  live.timer = setInterval(tickLive, 250);
+  meterLoop();
+  setTimeout(() => { const el = $('#livePanel [name="protocolo"]'); el && el.focus(); }, 50);
+}
+function renderLive(){
+  const defaults = {status: 'Pendente', prioridade: 'Normal', categoria: 'Auto'};
+  $('#livePanel').innerHTML = `
+    <div class="live-head" id="liveHead">
+      <div class="rec-dot"></div>
+      <div><div class="live-title" id="liveState">Chamada em andamento</div><div class="muted small">${esc(live.srcLabel)}</div></div>
+      <div class="live-timer" id="liveTimer">00:00</div>
+      <div class="meter" title="Nível do áudio"><div id="meterBar"></div></div>
+      <div class="spacer"></div>
+      <button class="btn" id="btnPause" ${live.rec ? '' : 'disabled'}>${ICON.pause(14)} Pausar</button>
+      <button class="btn ghost text-danger" id="btnDiscard">Descartar</button>
+      <button class="btn danger" id="btnFinish">${ICON.stop(14)} Finalizar <kbd>F9</kbd></button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Dados do chamado</div>
+        <form id="liveForm" onsubmit="return false">${formHTML(defaults)}</form>
+      </div>
+      <div class="card">
+        <div class="card-title">${ICON.flag(16)} Marcadores <span class="spacer"></span><kbd>F4</kbd></div>
+        <div class="mark-row"><input id="markInput" placeholder="Descreva o momento e tecle Enter" autocomplete="off"><button class="btn" id="btnMark">Marcar</button></div>
+        <div class="chips">${QUICK_MARKS.map(q => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+        <ul class="marks" id="liveMarks"></ul>
+        <div class="hint">Os marcadores viram a linha do tempo do relatório e permitem pular direto para aquele trecho da gravação.</div>
+      </div>
+    </div>`;
+  bindForm($('#liveForm'));
+  renderLiveMarks();
+  $('#btnPause').onclick = togglePause;
+  $('#btnFinish').onclick = finishCall;
+  $('#btnDiscard').onclick = discardCall;
+  $('#btnMark').onclick = () => addMark($('#markInput').value);
+  $('#markInput').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addMark($('#markInput').value); } });
+  $('#livePanel .chips').onclick = e => { const b = e.target.closest('[data-q]'); if (b) addMark(b.dataset.q, elapsed()); };
+}
+function addMark(label, t){
+  if (!live) return;
+  t = t ?? live.pendingT ?? elapsed();
+  live.pendingT = null;
+  live.marks.push({t: Math.round(t), label: (label || '').trim() || 'Marcador'});
+  live.marks.sort((a, b) => a.t - b.t);
+  $('#markInput').value = '';
+  renderLiveMarks();
+}
+function renderLiveMarks(){
+  const ul = $('#liveMarks');
+  ul.innerHTML = live.marks.length
+    ? live.marks.map((m, i) => `<li><span class="t">${fmtDur(m.t)}</span><span class="l">${esc(m.label)}</span><button class="x" data-rm="${i}" title="Remover">✕</button></li>`).join('')
+    : '<li class="marks-empty">Nenhum marcador ainda.</li>';
+  ul.onclick = e => { const b = e.target.closest('[data-rm]'); if (b){ live.marks.splice(+b.dataset.rm, 1); renderLiveMarks(); } };
+}
+function tickLive(){
+  if (!live) return;
+  const t = fmtDur(elapsed());
+  const el = $('#liveTimer'); if (el) el.textContent = t;
+  $('#liveBanner').innerHTML = `<span class="rec-dot"></span> Chamada em andamento <span class="live-timer">${t}</span><span style="flex:1"></span><span class="small">Voltar para a chamada →</span>`;
+}
+function meterLoop(){
+  if (!live) return;
+  const bar = $('#meterBar');
+  if (live.analyser && bar){
+    const buf = new Uint8Array(live.analyser.fftSize);
+    live.analyser.getByteTimeDomainData(buf);
+    let sum = 0; for (const v of buf){ const x = (v - 128) / 128; sum += x * x; }
+    const rms = Math.sqrt(sum / buf.length);
+    bar.style.width = live.pauseStart ? '0%' : Math.min(100, rms * 400) + '%';
+  }
+  live.raf = requestAnimationFrame(meterLoop);
+}
+function togglePause(){
+  if (!live || !live.rec) return;
+  if (live.pauseStart){
+    live.pausedMs += Date.now() - live.pauseStart; live.pauseStart = null;
+    if (live.rec.state === 'paused') live.rec.resume();
+  } else {
+    live.pauseStart = Date.now();
+    if (live.rec.state === 'recording') live.rec.pause();
+  }
+  const paused = !!live.pauseStart;
+  $('#liveHead').classList.toggle('paused', paused);
+  $('#liveState').textContent = paused ? 'Gravação pausada' : 'Chamada em andamento';
+  $('#btnPause').innerHTML = paused ? `${ICON.play(14)} Retomar` : `${ICON.pause(14)} Pausar`;
+}
+function stopLive(){
+  clearInterval(live.timer); cancelAnimationFrame(live.raf);
+  live.streams.forEach(s => s.getTracks().forEach(t => t.stop()));
+  if (live.ctx) live.ctx.close().catch(() => {});
+}
+function makeRegistro(ts){
+  const d = new Date(ts), p = n => String(n).padStart(2, '0');
+  const prefix = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const max = calls.filter(c => c.registro && c.registro.startsWith(prefix))
+    .reduce((m, c) => Math.max(m, parseInt(c.registro.split('-')[1], 10) || 0), 0);
+  return `${prefix}-${String(max + 1).padStart(3, '0')}`;
+}
+async function finishCall(){
+  if (!live || live.finishing) return;
+  live.finishing = true;
+  const form = readForm($('#liveForm'));
+  if (live.pauseStart) togglePause();
+  const dur = elapsed();
+  const fim = new Date();
+  let blob = null;
+  if (live.rec && live.rec.state !== 'inactive'){
+    await new Promise(r => { live.rec.onstop = r; live.rec.stop(); });
+    blob = new Blob(live.chunks, {type: live.mime});
+  }
+  stopLive();
+  const id = 'C' + live.startTs;
+  const call = {
+    id, registro: makeRegistro(live.startTs),
+    inicio: new Date(live.startTs).toISOString(), fim: fim.toISOString(), duracao: Math.round(dur),
+    ...form, marcadores: live.marks, atendente: settings.atendente, hasAudio: !!(blob && blob.size),
+  };
+  try {
+    if (call.hasAudio) await DB.put('audio', {id, blob, mime: blob.type});
+    await DB.put('calls', call);
+  } catch (e) {
+    console.error(e);
+    toast('Erro ao salvar o chamado: ' + (e && e.message || e), 'warn');
+    live.finishing = false;
+    return;
+  }
+  live = null;
+  calls.push(call);
+  renderAll();
+  openCall(id);
+  toast('Chamado registrado ✓');
+}
+function discardCall(){
+  if (!live) return;
+  if (!confirm('Descartar esta chamada? A gravação e os dados preenchidos serão perdidos.')) return;
+  if (live.rec && live.rec.state !== 'inactive') live.rec.stop();
+  stopLive();
+  live = null;
+  renderStartBtn();
+  $('#livePanel').innerHTML = '';
+  if (selectedId) openCall(selectedId); else renderEmpty();
+}
+
+/* ===================== Detalhe do chamado ===================== */
+function openCall(id){
+  const c = calls.find(x => x.id === id);
+  if (!c){ renderEmpty(); return; }
+  if (selectedId !== id || !player) destroyPlayer();
+  selectedId = id; editing = false;
+  const el = $('#detailPanel');
+  el.innerHTML = `
+    <div class="detail-head">
+      <div class="grow">
+        <div class="reg">${esc(c.registro)}${c.protocolo ? ' · Protocolo ' + esc(c.protocolo) : ''}</div>
+        <h2>${esc(c.tipo)} <span class="muted" style="font-weight:400">· ${esc(c.categoria)}</span></h2>
+        <div class="muted small">${esc(dayLabel(c.inicio))}, ${fmtData(c.inicio)} · ${fmtHora(c.inicio)}–${fmtHora(c.fim)} · ${fmtDur(c.duracao)} · ${esc(c.cliente || 'cliente não informado')}${c.prioridade !== 'Normal' ? ' · prioridade ' + esc(c.prioridade) : ''}</div>
+      </div>
+      <div class="head-actions">
+        <select class="status-select" id="quickStatus" title="Alterar status">${opts(STATUS, c.status)}</select>
+        <button class="btn" id="btnEdit">${ICON.edit(15)} Editar</button>
+        <button class="btn icon ghost text-danger" id="btnDelete" title="Excluir chamado">${ICON.trash(16)}</button>
+      </div>
+    </div>
+    <div class="card" id="playerCard">
+      <div class="card-title">${ICON.mic(16)} Gravação<span class="spacer"></span>${c.hasAudio ? '<button class="btn" id="btnAddMark">' + ICON.flag(14) + ' Marcar aqui</button>' : ''}</div>
+      ${c.hasAudio ? `
+        <div class="wave-wrap" id="waveWrap"><canvas id="wave"></canvas><div class="wave-msg" id="waveMsg">Carregando áudio…</div><div class="wave-hover" id="waveHover"></div></div>
+        <div class="controls">
+          <button class="btn" id="pBack" title="Voltar 10s (J)">${ICON.back(15)} 10s</button>
+          <button class="play" id="pPlay" title="Tocar/pausar (Espaço)">${ICON.play(20)}</button>
+          <button class="btn" id="pFwd" title="Avançar 10s (L)">10s ${ICON.fwd(15)}</button>
+          <span class="ptime"><span id="pCur">00:00</span> / <span id="pDur">${fmtDur(c.duracao)}</span></span>
+          <span class="spacer"></span>
+          <span class="small muted">Velocidade</span>
+          <div class="rate" id="pRate">${[0.75, 1, 1.25, 1.5, 2].map(r => `<button data-r="${r}" class="${r === 1 ? 'on' : ''}">${String(r).replace('.', ',')}x</button>`).join('')}</div>
+        </div>`
+      : `<div class="no-audio">Este chamado foi registrado sem gravação de áudio.</div>`}
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Relatório<span class="spacer"></span><button class="btn" id="btnCopy">${ICON.copy(15)} Copiar</button></div>
+        <pre class="report" id="report">${esc(buildReport(c))}</pre>
+      </div>
+      <div class="card">
+        <div class="card-title">${ICON.flag(16)} Linha do tempo</div>
+        <ul class="marks clickable" id="timeline"></ul>
+        ${c.hasAudio ? '<div class="hint">Clique num marcador para ouvir aquele trecho.</div>' : ''}
+      </div>
+    </div>`;
+  renderTimeline(c);
+  $('#quickStatus').onchange = async e => { c.status = e.target.value; await saveCall(c); $('#report').textContent = buildReport(c); toast('Status atualizado'); };
+  $('#btnEdit').onclick = () => editCall(c);
+  $('#btnDelete').onclick = () => deleteCall(c);
+  $('#btnCopy').onclick = () => copyText(buildReport(c));
+  if (c.hasAudio){
+    $('#btnAddMark').onclick = async () => {
+      if (!player) return;
+      const t = Math.round(player.audio.currentTime);
+      const label = prompt(`Descrição do marcador em ${fmtDur(t)}:`, '');
+      if (label === null) return;
+      c.marcadores = [...(c.marcadores || []), {t, label: label.trim() || 'Marcador'}].sort((a, b) => a.t - b.t);
+      await saveCall(c);
+      renderTimeline(c); $('#report').textContent = buildReport(c); drawWave();
+    };
+    setupPlayer(c);
+  }
+  setView('detail');
+}
+function renderTimeline(c){
+  const ul = $('#timeline');
+  const ms = c.marcadores || [];
+  ul.innerHTML = ms.length
+    ? ms.map((m, i) => `<li data-t="${m.t}"><span class="t">${fmtDur(m.t)}</span><span class="l">${esc(m.label)}</span><button class="x" data-rm="${i}" title="Remover">✕</button></li>`).join('')
+    : '<li class="marks-empty">Sem marcadores.</li>';
+  ul.onclick = async e => {
+    const rm = e.target.closest('[data-rm]');
+    if (rm){
+      c.marcadores.splice(+rm.dataset.rm, 1);
+      await saveCall(c); renderTimeline(c); $('#report').textContent = buildReport(c); drawWave();
+      return;
+    }
+    const li = e.target.closest('[data-t]');
+    if (li && player){ seek(+li.dataset.t - 2); player.audio.play(); }
+  };
+}
+function editCall(c){
+  editing = true;
+  if (player) player.audio.pause();
+  const el = $('#detailPanel');
+  el.innerHTML = `
+    <div class="detail-head"><div class="grow"><div class="reg">${esc(c.registro)}</div><h2>Editar chamado</h2></div>
+      <div class="head-actions"><button class="btn" id="btnCancelEdit">Cancelar</button><button class="btn primary" id="btnSaveEdit">Salvar alterações</button></div></div>
+    <div class="card"><form id="editForm" onsubmit="return false">${formHTML(c)}</form></div>`;
+  destroyPlayer();
+  bindForm($('#editForm'), c, c.id);
+  $('#btnCancelEdit').onclick = () => openCall(c.id);
+  $('#btnSaveEdit').onclick = async () => {
+    Object.assign(c, readForm($('#editForm')));
+    await saveCall(c);
+    openCall(c.id);
+    toast('Alterações salvas');
+  };
+}
+async function saveCall(c){ await DB.put('calls', c); renderStats(); renderList(); }
+async function deleteCall(c){
+  if (!confirm(`Excluir o chamado ${c.registro} e sua gravação? Esta ação não pode ser desfeita.`)) return;
+  await DB.del('calls', c.id);
+  await DB.del('audio', c.id);
+  calls = calls.filter(x => x.id !== c.id);
+  renderAll();
+  renderEmpty();
+  toast('Chamado excluído');
+}
+async function copyText(txt){
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  toast('Relatório copiado — cole no sistema com Ctrl+V');
+}
+
+/* ===================== Player ===================== */
+function destroyPlayer(){
+  if (!player) return;
+  player.audio.pause();
+  cancelAnimationFrame(player.raf);
+  URL.revokeObjectURL(player.url);
+  player = null;
+}
+async function setupPlayer(c){
+  const rec = await DB.get('audio', c.id);
+  if (selectedId !== c.id) return;
+  if (!rec){ $('#waveMsg').textContent = 'Gravação não encontrada.'; return; }
+  const url = URL.createObjectURL(rec.blob);
+  const audio = new Audio();
+  audio.preload = 'auto';
+  const p = player = {audio, url, dur: c.duracao || 0, peaks: null, call: c, raf: 0};
+  // Gravações webm do navegador vêm sem duração: força o cálculo para permitir avançar/voltar
+  audio.addEventListener('loadedmetadata', () => {
+    if (!isFinite(audio.duration)){
+      const fix = () => { audio.removeEventListener('timeupdate', fix); if (isFinite(audio.duration)) p.dur = audio.duration; audio.currentTime = 0; updateTime(); };
+      audio.addEventListener('timeupdate', fix);
+      audio.currentTime = 1e7;
+    } else { p.dur = audio.duration; updateTime(); }
+  });
+  audio.addEventListener('play', () => { $('#pPlay') && ($('#pPlay').innerHTML = ICON.pause(20)); loop(); });
+  audio.addEventListener('pause', () => { $('#pPlay') && ($('#pPlay').innerHTML = ICON.play(20)); cancelAnimationFrame(p.raf); updateTime(); });
+  audio.addEventListener('ended', () => { audio.pause(); });
+  audio.addEventListener('seeked', updateTime);
+  audio.src = url;
+  const loop = () => { if (player !== p) return; updateTime(); p.raf = requestAnimationFrame(loop); };
+
+  $('#pPlay').onclick = togglePlay;
+  $('#pBack').onclick = () => skip(-10);
+  $('#pFwd').onclick = () => skip(10);
+  $('#pRate').onclick = e => {
+    const b = e.target.closest('[data-r]'); if (!b) return;
+    audio.playbackRate = +b.dataset.r;
+    $('#pRate').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  };
+  const wrap = $('#waveWrap');
+  const tAt = e => { const r = wrap.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * p.dur; };
+  wrap.onclick = e => seek(tAt(e));
+  wrap.onmousemove = e => { const h = $('#waveHover'); h.style.display = 'block'; h.style.left = (e.clientX - wrap.getBoundingClientRect().left) + 'px'; h.textContent = fmtDur(tAt(e)); };
+  wrap.onmouseleave = () => { $('#waveHover').style.display = 'none'; };
+
+  // Forma de onda
+  try {
+    const buf = await rec.blob.arrayBuffer();
+    const ab = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(buf);
+    if (player !== p) return;
+    const data = ab.getChannelData(0), N = 1500, step = Math.max(1, Math.floor(data.length / N));
+    const peaks = new Float32Array(N);
+    for (let i = 0; i < N; i++){
+      let m = 0; const s = i * step, e = Math.min(data.length, s + step);
+      for (let j = s; j < e; j += 4){ const v = Math.abs(data[j]); if (v > m) m = v; }
+      peaks[i] = m;
+    }
+    const max = peaks.reduce((a, b) => Math.max(a, b), 0) || 1;
+    p.peaks = peaks.map(v => v / max);
+    if (!isFinite(audio.duration)) p.dur = ab.duration;
+    $('#waveMsg').textContent = '';
+  } catch (e) {
+    if (player === p) $('#waveMsg').textContent = '';
+  }
+  updateTime();
+}
+function updateTime(){
+  if (!player) return;
+  const cur = $('#pCur'), dur = $('#pDur');
+  if (cur) cur.textContent = fmtDur(player.audio.currentTime);
+  if (dur && player.dur) dur.textContent = fmtDur(player.dur);
+  drawWave();
+}
+function drawWave(){
+  const p = player, cv = $('#wave');
+  if (!p || !cv) return;
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w) return;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const cs = getComputedStyle(document.documentElement);
+  const cBase = cs.getPropertyValue('--wave').trim(), cPlay = cs.getPropertyValue('--wave-played').trim(), cMark = cs.getPropertyValue('--mark').trim();
+  const top = 12, mid = top + (h - top) / 2, amp = (h - top) / 2 - 4;
+  const bw = 2, gap = 1, n = Math.floor(w / (bw + gap));
+  const prog = p.dur ? p.audio.currentTime / p.dur : 0;
+  for (let i = 0; i < n; i++){
+    const v = p.peaks ? p.peaks[Math.floor(i / n * p.peaks.length)] : 0.08;
+    const bh = Math.max(2, v * amp * 2);
+    ctx.fillStyle = i / n <= prog ? cPlay : cBase;
+    ctx.fillRect(i * (bw + gap), mid - bh / 2, bw, bh);
+  }
+  ctx.fillStyle = cMark; ctx.strokeStyle = cMark; ctx.lineWidth = 1;
+  for (const m of (p.call.marcadores || [])){
+    if (!p.dur) break;
+    const x = Math.round(m.t / p.dur * w) + 0.5;
+    ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, h); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(x - 5, 2); ctx.lineTo(x + 5, 2); ctx.lineTo(x, 10); ctx.closePath(); ctx.fill();
+  }
+  const px = Math.round(prog * w) + 0.5;
+  ctx.strokeStyle = cPlay; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(px, top - 2); ctx.lineTo(px, h); ctx.stroke();
+}
+function togglePlay(){ if (!player) return; player.audio.paused ? player.audio.play() : player.audio.pause(); }
+function seek(t){ if (!player) return; player.audio.currentTime = Math.max(0, Math.min(player.dur || 0, t)); updateTime(); }
+function skip(d){ if (player) seek(player.audio.currentTime + d); }
+
+/* ===================== Eventos globais ===================== */
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+  if (e.key === 'F2'){ e.preventDefault(); startCall(); return; }
+  if (e.key === 'F4' && live){ e.preventDefault(); setView('live'); live.pendingT = elapsed(); $('#markInput').focus(); return; }
+  if (e.key === 'F9' && live){ e.preventDefault(); setView('live'); finishCall(); return; }
+  if (typing || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === '/'){ e.preventDefault(); $('#q').focus(); return; }
+  if (view === 'detail' && player && !editing){
+    const k = e.key.toLowerCase();
+    if (k === ' ' || k === 'k'){ e.preventDefault(); togglePlay(); }
+    else if (k === 'j'){ skip(-10); }
+    else if (k === 'l'){ skip(10); }
+    else if (k === 'arrowleft'){ e.preventDefault(); skip(-5); }
+    else if (k === 'arrowright'){ e.preventDefault(); skip(5); }
+  }
+});
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-open]');
+  if (a){ e.preventDefault(); openCall(a.dataset.open); }
+});
+window.addEventListener('beforeunload', e => { if (live){ e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('resize', () => drawWave());
+
+$('#list').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) openCall(b.dataset.id); });
+['q', 'fPeriodo', 'fCat', 'fStatus'].forEach(id => $('#' + id).addEventListener(id === 'q' ? 'input' : 'change', renderList));
+$('#btnStart').onclick = startCall;
+$('#liveBanner').onclick = () => setView('live');
+$('#btnTheme').onclick = () => { settings.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; saveSettings(); applyTheme(); };
+$('#btnSettings').onclick = () => {
+  const f = $('#settingsForm');
+  f.atendente.value = settings.atendente;
+  f.querySelectorAll('[name=audioMode]').forEach(r => r.checked = r.value === settings.audioMode);
+  $('#dlgSettings').showModal();
+};
+$('#dlgSettings').addEventListener('close', () => {
+  if ($('#dlgSettings').returnValue !== 'ok') return;
+  const f = $('#settingsForm');
+  settings.atendente = f.atendente.value.trim();
+  settings.audioMode = (f.querySelector('[name=audioMode]:checked') || {}).value || 'mic';
+  saveSettings();
+  toast('Configurações salvas');
+});
+
+/* ===================== Início ===================== */
+(async function init(){
+  $('#logo').innerHTML = I('<path d="M3 12h3l2-6 4 12 3-9 2 3h4"/>', 18);
+  $('#icoSearch').innerHTML = ICON.search(16);
+  $('#btnSettings').innerHTML = ICON.gear(18);
+  $('#fCat').innerHTML += opts(Object.keys(CATEGORIAS));
+  $('#fStatus').innerHTML += opts(STATUS);
+  applyTheme();
+  try {
+    await DB.open();
+    calls = await DB.all('calls');
+  } catch (e) {
+    toast('Não foi possível abrir o banco local: ' + (e && e.message || e), 'warn');
+  }
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  renderAll();
+  renderEmpty();
+  if (!settings.atendente) setTimeout(() => toast('Dica: informe seu nome em Configurações (engrenagem) para sair no relatório.'), 800);
+})();
+</script>
+</body>
+</html>
