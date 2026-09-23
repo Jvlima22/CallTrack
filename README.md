@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png">
+    <img src="assets/logo-light.png" alt="CallTrack" width="320">
+  </picture>
+</p>
+
 # CallTrack
 
 Registro e histórico de chamadas para atendimento 24h — grava a ligação, registra o chamado com relatório e permite reouvir a gravação.
