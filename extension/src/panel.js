@@ -42,7 +42,8 @@
   .icon-btn:hover { background: rgba(255,255,255,0.1); }
   .icon-btn svg { width: 18px; height: 18px; fill: #9aa0a6; }
   .brand { display: flex; align-items: center; gap: calc(8px * var(--s)); }
-  .logo { width: var(--logo, 22px); height: var(--logo, 22px); flex: none; display: block; }
+  /* Logo oficial (assets/icon.png): só a altura é definida, a largura segue a proporção original. */
+  .logo { height: var(--logo, 24px); width: auto; flex: none; display: block; }
   .name { font-weight: 600; color: #bdc1c6; white-space: nowrap; }
   .stages { display: flex; gap: calc(6px * var(--s)); }
   .dot {
@@ -100,10 +101,7 @@
           <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
         </div>
         <span class="brand">
-          <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="1" y="2" width="22" height="20" rx="5.5" fill="#fff"/>
-            <path d="M0 12H6.6L10.4 3.9Q10.9 2.9 11.4 3.9L15.1 18.3Q15.5 19.3 16 18.3L18.2 12H24" fill="none" stroke="#202124" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <img class="logo" alt="" draggable="false">
           <span class="name">CallTrack</span>
         </span>
         <button class="icon-btn toggle-collapse" title="Minimizar/Expandir">
@@ -132,6 +130,8 @@
     const startBtn = $('.start');
     const endBtn = $('.end');
     const tip = $('.tip');
+    // icon.png da extensão é o mesmo arquivo de assets/icon.png (logo azul do CallTrack).
+    $('.logo').src = self.chrome?.runtime?.getURL?.('icon.png') || 'icon.png';
     let playbookStages = [];
     const stageInfo = new Map(); // key -> { label, criteria, status, reason }
 
@@ -171,9 +171,9 @@
       const s = tall ? Math.min(1.6, Math.max(1, 1 + (h - TALL_H) / 220)) : 1;
       bar.style.setProperty('--s', s.toFixed(3));
       const byWidth = w ? Math.min(1.6, Math.max(1, 1 + (w - 960) / 900)) : 1;
-      let logo = 22 * Math.max(s, byWidth);
-      if (h && !tall) logo = Math.min(logo, h - 22);
-      bar.style.setProperty('--logo', `${Math.max(22, Math.round(logo))}px`);
+      let logo = 24 * Math.max(s, byWidth);
+      if (h && !tall) logo = Math.min(logo, h - 20);
+      bar.style.setProperty('--logo', `${Math.max(24, Math.round(logo))}px`);
     }
 
     function clampIntoView() {
