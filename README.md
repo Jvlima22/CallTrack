@@ -7,19 +7,125 @@
 
 # CallTrack
 
-Registro e histórico de chamadas para atendimento 24h — grava a ligação, registra o chamado com relatório e permite reouvir a gravação.
+Registro e análise de chamadas em dois módulos, na mesma interface (`calltrack.html`):
 
-Arquivo único (`calltrack.html`), sem instalação e sem conexão externa: tudo fica salvo localmente no navegador (IndexedDB).
+- **Reuniões · CRM**: calls de venda no Google Meet capturadas pela extensão **CallTrack Copilot**, com as etapas SPICED ao vivo e a análise pós-call feita pelo Claude (nota, resumo, objeções, riscos e próximos passos). Os cards ficam num kanban Em aberto / Fechado / Perdido.
+- **Atendimentos**: registro de chamadas para atendimento 24h. Grava a ligação, registra o chamado com relatório e permite reouvir a gravação. Tudo fica salvo localmente no navegador (IndexedDB).
 
-## Como usar
+```
+calltrack.html  Interface: CRM de reuniões + atendimentos 24h (arquivo único)
+backend/        Node.js + Fastify + MongoDB: REST, WebSocket, motor ao vivo, análise pós-call; serve o calltrack.html em /
+extension/      Extensão Chrome MV3: lê as legendas do Meet e mostra o painel SPICED
+scripts/        Empacotamento da extensão
+assets/         Logos
+```
 
-1. Abra `calltrack.html` no Chrome ou Edge.
-2. Na engrenagem, informe seu nome e a fonte de áudio:
-   - **Somente microfone** — ligação em outro aparelho ou áudio saindo na caixa de som.
-   - **Microfone + áudio do computador** — softphone no PC; ao iniciar a chamada, marque "Compartilhar áudio do sistema".
-3. `F2` inicia a chamada, `F4` marca um momento, `F9` finaliza e registra.
+---
 
-## Funcionalidades
+## 1. Pré-requisitos
+
+| Requisito | Versão mínima |
+|-----------|--------------|
+| Node.js   | 20 LTS       |
+| Chrome ou Edge | 116+    |
+| MongoDB Atlas (cluster gratuito M0) | — |
+| Chave da API Anthropic | — |
+
+O módulo **Atendimentos** não precisa de nada disso: basta abrir o `calltrack.html` no navegador.
+
+---
+
+## 2. Banco de dados (MongoDB Atlas)
+
+1. Crie um **Free Cluster** (M0) em [mongodb.com/atlas](https://www.mongodb.com/atlas).
+2. Em **Database Access**, crie um usuário com a role **readWriteAnyDatabase**.
+3. Em **Network Access**, adicione o IP da máquina que roda o backend (ou `0.0.0.0/0` só em desenvolvimento). Sem isso a conexão falha com erro de TLS/"server selection".
+4. Em **Clusters → Connect → Drivers**, copie a connection string e acrescente o nome do banco:
+   ```
+   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/spiced_copilot?retryWrites=true&w=majority
+   ```
+
+Os índices e collections são criados pelo Mongoose no primeiro `npm run seed`.
+
+---
+
+## 3. Backend
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Preencha o `.env`:
+
+```env
+PORT=8787
+MONGODB_URI=mongodb+srv://...
+ANTHROPIC_API_KEY=sk-ant-...
+LIVE_MODEL=claude-haiku-4-5-20251001
+POSTCALL_MODEL=claude-sonnet-5-5
+LIVE_ENABLED=true          # false = só captura + pós-call, sem custo de LLM durante a call
+LIVE_PRICE_IN=1
+LIVE_PRICE_OUT=5
+POSTCALL_PRICE_IN=3
+POSTCALL_PRICE_OUT=15
+```
+
+Instale, crie o primeiro usuário e suba o servidor:
+
+```bash
+npm install
+npm run seed -- "Nome da Empresa" "Seu Nome" voce@empresa.com seller
+npm run dev
+```
+
+O seed imprime o token (`spc_...`) **uma única vez**. Guarde-o: ele serve para a extensão e para entrar no CRM.
+
+Abra **http://localhost:8787**. O backend entrega o `calltrack.html` já apontando para ele mesmo.
+
+Mais usuários:
+
+```bash
+npm run seed -- "Nome da Empresa" "Gerente" gerente@empresa.com manager
+npm run seed -- "Nome da Empresa" "Admin" admin@empresa.com admin
+```
+
+Rodar o seed de novo com o mesmo e-mail gera um novo token e invalida o anterior.
+
+**Quem vê o quê no CRM:** vendedor vê as próprias calls, manager as do seu time, admin todas da conta.
+
+---
+
+## 4. Extensão CallTrack Copilot
+
+1. Abra `chrome://extensions` e ative o **Modo do desenvolvedor**.
+2. **Carregar sem compactação** → selecione a pasta `extension/`.
+3. No ícone da extensão, preencha **Servidor** (`http://localhost:8787`) e **Token do vendedor** (`spc_...`) e salve.
+
+Na call:
+
+1. Entre no Google Meet e **ative as legendas** em **Português** (botão CC ou tecla `C`).
+2. No painel do CallTrack (canto inferior esquerdo), clique em **Analisar call**.
+3. Ao terminar, clique em **Encerrar call**. A análise pós-call leva cerca de 30 s.
+4. O botão do CRM no painel abre o CallTrack já autenticado.
+
+Para gerar o `.zip` da extensão: `node scripts/pack-extension.js` (na raiz).
+
+---
+
+## 5. Interface (`calltrack.html`)
+
+A alternância **Atendimentos / Reuniões · CRM** fica no topo, e o navegador lembra a última escolha.
+
+### Reuniões · CRM
+
+- Kanban **Em aberto / Fechado (won) / Perdido (lost)**. Arraste o card para mudar o resultado; a mudança é gravada no backend.
+- Card: lead, empresa, vendedor, duração, nota SPICED (0–10), etapas S·P·I·CE·D, status (ao vivo, processando) e alerta de risco.
+- Detalhe da call: dados editáveis (lead, empresa, ID do negócio), métricas (fala do vendedor, perguntas, maior monólogo, custo), resumo, etapas com justificativa, próximos passos, objeções e riscos, linha do tempo ao vivo e transcrição.
+- Busca, filtro por vendedor e período. A lista se atualiza sozinha a cada 30 s.
+- Se o arquivo for aberto direto do disco (`file://`), o CRM pede o endereço do servidor e o token.
+
+### Atendimentos
 
 - Gravação da chamada com pausa (música de espera) e medidor de nível
 - Formulário com categoria/tipo de ocorrência e checklist específico por tipo
@@ -29,20 +135,66 @@ Arquivo único (`calltrack.html`), sem instalação e sem conexão externa: tudo
 - Player com forma de onda: clique para pular, ±10 s, velocidade 0,75x–2x, marcadores clicáveis
 - Busca (sem acentos) e filtros por período, categoria e status
 - Indicadores do dia: chamadas, TMA, resolvidos e em aberto
-- Tema claro/escuro
 
-## Atalhos
+Os dados dos atendimentos ficam só no navegador deste computador: limpar os dados do navegador apaga os chamados. Confirme com a empresa a política de gravação antes de usar em ligações reais.
+
+### Atalhos
 
 | Tecla | Ação |
 |---|---|
-| `F2` | Iniciar chamada |
+| `F2` | Iniciar chamada (atendimento) |
 | `F4` | Marcar momento |
 | `F9` | Finalizar chamada |
 | `Espaço` | Tocar/pausar gravação |
 | `J` / `L` | Voltar/avançar 10 s |
-| `/` | Buscar |
+| `/` | Buscar (no módulo aberto) |
 
-## Observações
+---
 
-- Os dados ficam só no navegador deste computador; limpar os dados do navegador apaga os chamados.
-- Confirme com a empresa a política de gravação antes de usar em ligações reais.
+## 6. Rotas da API
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET`  | `/` | Interface (`calltrack.html`) |
+| `GET`  | `/health` | Liveness check |
+| `GET`  | `/config/meet-selectors` | Seletores do DOM do Meet entregues à extensão |
+| `GET`  | `/api/crm/calls` | Calls visíveis ao usuário, com análise e nome do vendedor |
+| `POST` | `/calls` | Inicia uma call: retorna `call_id`, `seller_name` e `playbook` |
+| `POST` | `/calls/:id/end` | Encerra a call e enfileira a análise pós-call |
+| `GET`  | `/calls/:id` | Retorna `call`, `turns`, `analysis` e `events` |
+| `PATCH`| `/calls/:id` | Atualiza `lead_name`, `lead_company`, `crm_deal_id` e `outcome` |
+| `GET`  | `/ws/calls/:id` | WebSocket: a extensão envia falas e recebe a atualização das etapas |
+
+Todas as rotas, exceto `/`, `/health` e `/config/meet-selectors`, exigem `Authorization: Bearer <token>`. Só o WebSocket aceita `?token=`, porque o navegador não permite header no handshake; esse valor é mascarado no log.
+
+---
+
+## 7. O que tende a quebrar na primeira call real
+
+- **Seletores das legendas do Meet.** O Google muda as classes sem aviso. Para corrigir, edite `backend/src/selectors.js` e reinicie o backend; a extensão busca os seletores a cada call, então não é preciso republicá-la.
+- **Identificação do vendedor.** Quem aparece como "Você"/"You" nas legendas é classificado como `seller`. Se o Meet usar outro rótulo, adicione-o em `selfLabels`, no mesmo arquivo.
+- **Idioma.** Os prompts estão em pt-BR. Configure as legendas do Meet em Português.
+- **Custo.** Os preços do `.env` são de referência; confira os valores atuais antes de usar `cost_usd` como métrica.
+
+---
+
+## 8. Testes
+
+```bash
+cd backend
+npm test
+```
+
+São 10 testes: rastreador de legendas, métricas, nota e regras do motor ao vivo.
+
+---
+
+## 9. Decisões de arquitetura
+
+| Decisão | Motivo |
+|---------|--------|
+| Interface em arquivo único (`calltrack.html`) servida pelo backend | Mantém o CallTrack sem build; o mesmo arquivo funciona aberto do disco (atendimentos) ou via servidor (CRM) |
+| Análise só começa quando o vendedor clica "Analisar call" | Evita analisar reuniões internas e cria um momento claro de consentimento (LGPD) |
+| Token simples (SHA-256 no banco) | Suficiente para a fase 1. A extensão abre o CRM com `#token=`, que não vai ao servidor e é apagado da barra de endereço |
+| Fila de análise em memória, com 3 tentativas | Simples na fase 1; trocar por fila persistente antes de rodar mais de um servidor |
+| Seletores do Meet no servidor | Corrigir seletores sem publicar nova versão da extensão |

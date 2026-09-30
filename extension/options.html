@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>CallTrack Copilot</title>
+  <style>
+    body { width: 320px; margin: 0; padding: 16px; font: 13px/1.4 "Google Sans", Roboto, Arial, sans-serif; color: #202124; }
+    h1 { font-size: 15px; margin: 0 0 12px; }
+    label { display: block; font-weight: 600; margin: 10px 0 4px; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #dadce0; border-radius: 8px; font: inherit; }
+    input:focus-visible { outline: 2px solid #1a73e8; }
+    button { margin-top: 14px; padding: 8px 16px; border: 0; border-radius: 999px; background: #1a73e8; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    p { color: #5f6368; margin: 10px 0 0; }
+  </style>
+</head>
+<body>
+  <h1>CallTrack Copilot</h1>
+  <label for="url">Servidor</label>
+  <input id="url" type="url" placeholder="http://localhost:8787" />
+  <label for="token">Token do vendedor</label>
+  <input id="token" type="password" placeholder="spc_…" />
+  <button id="save">Salvar</button>
+  <p id="status" role="status"></p>
+  <script src="options.js"></script>
+</body>
+</html>

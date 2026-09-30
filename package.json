@@ -1,0 +1,10 @@
+{
+  "name": "calltrack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pack": "node scripts/pack-extension.js",
+    "test": "cd backend && npm test"
+  }
+}
