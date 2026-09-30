@@ -32,7 +32,7 @@ const token = `spc_${crypto.randomBytes(24).toString('hex')}`;
 await User.findOneAndUpdate(
   { email },
   { org_id: org._id, role, name: userName, email, api_token_hash: hashToken(token) },
-  { upsert: true, new: true },
+  { upsert: true, returnDocument: 'after' },
 );
 console.log(`Usuário ${userName} (${role}) pronto.`);
 console.log(`Token da extensão (guarde agora, não é exibido de novo):\n${token}`);

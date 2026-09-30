@@ -157,7 +157,7 @@ app.patch('/calls/:id', { preHandler: [auth, loadOwnedCall] }, async (req, reply
   if (patch.outcome && !['won', 'lost', 'open'].includes(patch.outcome)) {
     return reply.code(400).send({ error: 'outcome deve ser won, lost ou open.' });
   }
-  const updated = await Call.findByIdAndUpdate(req.call._id, patch, { new: true }).lean();
+  const updated = await Call.findByIdAndUpdate(req.call._id, patch, { returnDocument: 'after' }).lean();
   return updated;
 });
 
