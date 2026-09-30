@@ -8,8 +8,15 @@ Sugira no máximo UMA pergunta, para a etapa mais atrasada na ordem S > P > I > 
 A pergunta deve ser curta (até 20 palavras), em linguagem falada, adaptada ao que o lead disse. Se nada for útil agora, "suggestion": null.
 Detecte sinais: "objection" (lead levanta objeção), "case_request" (lead pede exemplo de cliente parecido), "overpromise" (vendedor promete algo fora do escopo ou incerto).
 Justificativas com no máximo 15 palavras.
+Em "knowledge", para cada etapa com algo novo na transcrição recente:
+- "context": fatos concretos levantados até agora para a etapa (números, nomes, datas, ferramentas), até 25 palavras. Vazio se nada novo.
+- "question_turn_ids": ids das falas do VENDEDOR que são perguntas ligadas a essa etapa.
+- "quote_turn_ids": ids das falas do LEAD que trazem informação dessa etapa.
+Em "lead_profile", preencha só o que o lead disse ou que aparece no nome do falante: nome, empresa, cargo. Nunca invente; deixe "" se não souber.
 Responda SOMENTE com JSON válido neste formato, sem texto antes ou depois:
 {"stages":{"S":{"status":"none|partial|complete","reason":"","evidence_turn_ids":[]},"P":{...},"I":{...},"CE":{...},"D":{...}},
+ "knowledge":{"S":{"context":"","question_turn_ids":[],"quote_turn_ids":[]},"P":{...},"I":{...},"CE":{...},"D":{...}},
+ "lead_profile":{"name":"","company":"","role":""},
  "signals":[{"type":"objection|case_request|overpromise","turn_id":0,"note":""}],
  "suggestion":{"stage":"S|P|I|CE|D","text":""} | null}`;
 
@@ -18,7 +25,7 @@ export function liveUser({ playbook, stages, summary, recentTurns }) {
 <estado_atual>${JSON.stringify(stages)}</estado_atual>
 <resumo>${summary || '(ainda sem resumo)'}</resumo>
 <transcricao_recente>
-${recentTurns.map((t) => `[${t.seq}] ${t.role}: ${t.text}`).join('\n')}
+${recentTurns.map((t) => `[${t.seq}] ${t.role}${t.speaker_name ? ` (${t.speaker_name})` : ''}: ${t.text}`).join('\n')}
 </transcricao_recente>`;
 }
 
@@ -33,12 +40,14 @@ Regras:
 - risk_signals: promessas do vendedor que o produto pode não cumprir, ou compromissos vagos. type "overpromise" ou "other".
 - summary: objetivos do cliente, situação com números, impacto financeiro, processo de decisão (quem decide), evento crítico. Só o que foi dito; não invente.
 - next_steps: ações concretas com owner "seller" ou "manager" e priority "high" | "medium" | "low". Inclua ações de coaching para o gestor quando fizer sentido.
+- lead_profile: nome, empresa e cargo do lead, só se ditos na call ou visíveis no nome do falante. "" quando não souber.
 Responda SOMENTE com JSON válido:
 {"stages":{"S":{"status":"","reason":"","evidence_turn_ids":[]},"P":{},"I":{},"CE":{},"D":{}},
  "objections":[{"turn_id":0,"text":"","handled":false}],
  "risk_signals":[{"type":"overpromise","turn_id":0,"note":""}],
  "summary":{"goals":"","situation":"","financial_impact":"","decision_process":"","critical_event":""},
- "next_steps":[{"text":"","owner":"seller","priority":"medium"}]}`;
+ "next_steps":[{"text":"","owner":"seller","priority":"medium"}],
+ "lead_profile":{"name":"","company":"","role":""}}`;
 
 export function postcallUser({ playbook, turns }) {
   return `<playbook>${JSON.stringify(playbook)}</playbook>

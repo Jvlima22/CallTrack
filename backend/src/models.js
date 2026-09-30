@@ -52,7 +52,26 @@ const callSchema = new Schema({
   meeting_code: String,
   lead_name:    String,
   lead_company: String,
+  lead_role:    String,          // cargo do lead (extraído da conversa)
+  meeting_title: String,         // título da reunião no Meet/Agenda
   crm_deal_id:  String,
+  // Pessoas que apareceram na reunião (lista de participantes do Meet + falantes das legendas).
+  // O Meet não expõe e-mail/telefone dos outros participantes na página.
+  participants: [{
+    _id: false,
+    name:          String,
+    avatar_url:    String,
+    is_self:       Boolean,
+    role:          { type: String, enum: ['seller', 'lead', 'internal'] },
+    first_seen_at: Date,
+    last_seen_at:  Date,
+    left_at:       Date,
+    talk_ms:       { type: Number, default: 0 },
+    turn_count:    { type: Number, default: 0 },
+  }],
+  // Campos editados à mão no CRM: o preenchimento automático não sobrescreve.
+  manual_fields: [String],
+  last_activity_at: Date,
   started_at:   { type: Date, default: Date.now },
   ended_at:     Date,
   status:       { type: String, enum: ['live', 'processing', 'done', 'failed'], default: 'live' },
@@ -80,6 +99,8 @@ const liveStateSchema = new Schema({
   call_id:         { type: Types.ObjectId, ref: 'Call', required: true, unique: true },
   stages:          Schema.Types.Mixed,
   rolling_summary: String,
+  knowledge:       Schema.Types.Mixed,  // por etapa: contexto, perguntas e citações ao vivo
+  health:          Schema.Types.Mixed,  // { level, reason, at }
   updated_at:      { type: Date, default: Date.now },
 });
 export const LiveState = model('LiveState', liveStateSchema);

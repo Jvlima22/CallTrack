@@ -3,6 +3,7 @@ import { callModel } from './llm.js';
 import { POSTCALL_SYSTEM, postcallUser } from './prompts.js';
 import { computeMetrics, computeScore } from './metrics.js';
 import { STAGE_ORDER } from './playbook.js';
+import { autofillCall } from './autofill.js';
 
 const CRITICAL_SCORE = 5;
 
@@ -62,6 +63,8 @@ export async function analyzeCall(callId, liveCostUsd = 0) {
     },
     { upsert: true },
   );
+  const lp = data.lead_profile ?? {};
+  await autofillCall(callId, { lead_name: lp.name, lead_company: lp.company, lead_role: lp.role }, { onlyIfEmpty: ['lead_name'] });
   await Call.findByIdAndUpdate(callId, { status: 'done' });
   return { score, observed };
 }

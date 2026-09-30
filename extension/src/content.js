@@ -10,6 +10,11 @@
     text: ['div:last-child'],
     captionsButton: ['button[aria-label*="legendas" i]', 'button[aria-label*="captions" i]'],
     selfLabels: ['Você', 'You'],
+    participantTile: ['[data-participant-id]', '[data-requested-participant-id]'],
+    participantName: ['[data-self-name]', '.zWGUib', '.XEazBc', '.dwSJ2e'],
+    participantAvatar: ['img[src*="googleusercontent.com"]'],
+    selfTile: ['[data-self-name]'],
+    meetingTitle: ['[data-meeting-title]'],
   };
 
   const cfg = await chrome.storage.sync.get(['backendUrl', 'token']);
@@ -63,6 +68,53 @@
     }).filter((b) => b.text.trim());
   }
 
+  // ─── Participantes e título da reunião ─────────────────────────────────────
+  // O Meet só mostra nome e foto dos outros participantes (sem e-mail/telefone).
+  const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+
+  function readParticipants() {
+    const byName = new Map();
+    let selfName = null;
+    for (const tile of all(document, S.participantTile)) {
+      const nameEl = first(tile, S.participantName);
+      const name = clean(nameEl?.getAttribute?.('data-self-name') || nameEl?.textContent);
+      if (!name || name.length > 120) continue;
+      const isSelf = !!first(tile, S.selfTile);
+      if (isSelf) selfName = name;
+      const avatar = first(tile, S.participantAvatar)?.src || '';
+      const prev = byName.get(name);
+      byName.set(name, { name, is_self: isSelf || !!prev?.is_self, avatar_url: prev?.avatar_url || avatar });
+    }
+    return { selfName, participants: [...byName.values()] };
+  }
+
+  function readMeetingTitle() {
+    const el = first(document, S.meetingTitle);
+    const fromAttr = clean(el?.getAttribute?.('data-meeting-title') || el?.textContent);
+    if (fromAttr) return fromAttr;
+    // aba do Chrome: "Meet: <título>" (sem título, mostra o código da reunião)
+    const t = clean(document.title.replace(/^Meet\s*[:\-–]\s*/i, ''));
+    return t && t !== location.pathname.slice(1) && !/^google meet$/i.test(t) ? t : '';
+  }
+
+  let lastParticipantsJson = '';
+  function sendParticipants(force = false) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const { selfName, participants } = readParticipants();
+    const payload = { type: 'participants.update', self_name: selfName, meeting_title: readMeetingTitle(), participants };
+    const json = JSON.stringify(payload);
+    if (!force && json === lastParticipantsJson) return;
+    lastParticipantsJson = json;
+    ws.send(json);
+  }
+
+  // Diz ao servidor se as legendas foram encontradas (vira a cor cinza do badge no CRM).
+  let captionsFound = false;
+  function sendCaptureStatus() {
+    captionsFound = !!first(document, S.region);
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'capture.status', captions_found: captionsFound }));
+  }
+
   function enableCaptions() {
     const btn = first(document, S.captionsButton);
     if (btn && btn.getAttribute('aria-pressed') === 'false') btn.click();
@@ -93,7 +145,7 @@
   function connect() {
     const url = `${base.replace(/^http/, 'ws')}/ws/calls/${callId}?token=${encodeURIComponent(cfg.token)}`;
     ws = new WebSocket(url);
-    ws.onopen = () => { reconnectDelay = 1000; send(); };
+    ws.onopen = () => { reconnectDelay = 1000; send(); sendParticipants(true); sendCaptureStatus(); };
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
       if (msg.type === 'stages.update') panel.setStages(msg.stages);
@@ -133,10 +185,14 @@
       connect();
       timers.push(setInterval(() => tracker.tick(), 500));
       timers.push(setInterval(send, 5000));
-      // Saúde da captura: sem legenda por 60 s, avisa.
+      timers.push(setInterval(() => sendParticipants(), 5000));
+      timers.push(setInterval(sendCaptureStatus, 10000));
+      // Saúde da captura: legendas não encontradas, ou nenhuma legenda nova por 60 s.
       timers.push(setInterval(() => {
-        if (Date.now() - lastCaptionAt > 60000) {
-          panel.setSuggestion({ text: 'Nenhuma legenda chegando. Ative as legendas em português (tecla C).' });
+        if (!first(document, S.region)) {
+          panel.setSuggestion({ text: 'Legendas do Meet não encontradas. Ative as legendas em português (tecla C).' });
+        } else if (Date.now() - lastCaptionAt > 60000) {
+          panel.setSuggestion({ text: 'Nenhuma legenda nova há 1 min. Confira se as legendas estão ativas (tecla C).' });
           lastCaptionAt = Date.now();
         }
       }, 10000));

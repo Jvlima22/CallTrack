@@ -23,4 +23,12 @@ export const MEET_SELECTORS = {
   ],
   // nome do próprio usuário (fica marcado como "Você"/"You" nas legendas)
   selfLabels: ['Você', 'You'],
+  // participantes: cada bloco de vídeo, o nome dentro dele e a foto
+  participantTile: ['[data-participant-id]', '[data-requested-participant-id]'],
+  participantName: ['[data-self-name]', '.zWGUib', '.XEazBc', '.dwSJ2e', '[jsname="EydYod"]'],
+  participantAvatar: ['img[src*="googleusercontent.com"]'],
+  // marca do bloco do próprio usuário
+  selfTile: ['[data-self-name]'],
+  // título da reunião (quando vem do Google Agenda)
+  meetingTitle: ['[data-meeting-title]'],
 };

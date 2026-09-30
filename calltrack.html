@@ -238,8 +238,52 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .crm-login input{height:36px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:0 10px}
 .crm-err{color:var(--danger);font-size:13px;min-height:18px}
 
+/* Badge "Ao vivo" piscando na cor da saúde da call */
+.live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:2px 9px 2px 7px;border-radius:999px;white-space:nowrap;
+  --c:var(--neutral);color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);animation:liveblink 1.4s ease-in-out infinite}
+.live-badge i{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 60%,transparent);animation:livering 1.4s ease-out infinite}
+.live-badge.ok{--c:var(--ok)} .live-badge.warn{--c:var(--warn)} .live-badge.danger{--c:var(--danger)} .live-badge.neutral{--c:var(--neutral)}
+.live-badge.danger{animation-duration:.8s} .live-badge.danger i{animation-duration:.8s}
+@keyframes liveblink{50%{background:color-mix(in srgb,var(--c) 30%,transparent)}}
+@keyframes livering{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.live-badge,.live-badge i{animation:none}}
+.kcard-live{margin-bottom:6px}
+.stat.live b{color:var(--danger)}
+.avs{display:flex;align-items:center;gap:0;margin-top:8px}
+.avs .av{margin-right:-6px;border:2px solid var(--panel)}
+.avs .muted{margin-left:12px}
+.av{--av:28px;width:var(--av);height:var(--av);border-radius:50%;display:inline-grid;place-items:center;flex:none;overflow:hidden;
+  background:var(--neutral-soft);color:var(--neutral);font-size:calc(var(--av) * .38);font-weight:700}
+.av img{width:100%;height:100%;object-fit:cover}
+.av.lead{background:var(--info-soft);color:var(--info)} .av.seller{background:var(--accent-soft);color:var(--accent)}
+
 /* Detalhe da call (CRM) */
-dialog.wide{width:min(980px,96vw);max-height:92vh}
+.cd-kicker{display:flex;gap:6px;align-items:center;min-height:4px;margin-bottom:4px}
+.cd-right{text-align:right}
+.auto{font:600 10px/1 ui-monospace,Consolas,monospace;padding:2px 5px;border-radius:4px;background:var(--accent-soft);color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.health{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);margin-bottom:14px;--c:var(--neutral);
+  background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
+.health.ok{--c:var(--ok)} .health.warn{--c:var(--warn)} .health.danger{--c:var(--danger)}
+.health i{width:10px;height:10px;border-radius:50%;background:var(--c);animation:livering 1.4s ease-out infinite;box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 60%,transparent)}
+.health b{color:var(--c)}
+.people{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.person{display:flex;gap:10px;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);min-width:220px}
+.person.left{opacity:.6}
+.spiced{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.stage{border:1px solid var(--border);border-radius:9px;padding:10px;background:var(--panel-2);display:grid;gap:8px;align-content:start;min-width:0}
+.stage.complete{border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.stage.partial{border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.stage header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stage header b{flex:1;font-size:13px}
+.stage .why{margin:0;font-size:12.5px;color:var(--muted)}
+.stage .ctx{font-size:13px;background:var(--panel);border-radius:7px;padding:7px 8px}
+.stage .ctx span,.stage .qlist > span{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+.qlist{display:grid;gap:4px}
+.qlist q{display:block;quotes:none;font-size:12.5px;padding:5px 7px;border-left:3px solid var(--accent);background:var(--panel);border-radius:0 6px 6px 0}
+.qlist.lead q{border-left-color:var(--info)}
+.qlist q em{font:normal 11px ui-monospace,Consolas,monospace;color:var(--muted);margin-right:6px}
+dialog.wide{width:min(1280px,96vw);max-height:92vh}
+.cd-edit .lbl{display:flex;align-items:center;gap:6px;min-height:16px}
 .cd{padding:20px 22px;overflow:auto;max-height:92vh}
 .cd-head{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px}
 .cd-head h2{margin:0 0 4px;font-size:20px}
@@ -255,20 +299,21 @@ dl.sum dd{margin:0}
 .rows li{display:flex;gap:10px;align-items:flex-start;padding:6px 8px;border-radius:7px;background:var(--panel-2)}
 .rows li .grow{flex:1}
 .rows .t{font:600 12.5px ui-monospace,Consolas,monospace;color:var(--mark);min-width:44px}
-.turns{max-height:420px;overflow:auto;display:grid;gap:4px;margin-top:10px}
+.turns{max-height:420px;overflow:auto;display:grid;align-content:start;gap:4px}
 .turn{display:grid;grid-template-columns:52px 1fr;gap:8px;font-size:13.5px;padding:4px 6px;border-radius:6px}
 .turn .t{font:12px ui-monospace,Consolas,monospace;color:var(--muted);padding-top:2px}
 .turn b{font-weight:600;margin-right:6px}
 .turn.lead b{color:var(--info)} .turn.seller b{color:var(--accent)}
 .cd details summary{cursor:pointer;font-weight:600}
-.cd-edit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end}
+.cd-edit{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) auto;gap:10px;align-items:end}
 .cd-edit input{height:34px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:0 10px}
 
-@media (max-width:1100px){ .board{grid-template-columns:repeat(3,minmax(240px,1fr))} .grid-2{grid-template-columns:1fr} .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:1100px){ .spiced{grid-template-columns:repeat(2,minmax(0,1fr))} .board{grid-template-columns:repeat(3,minmax(240px,1fr))} .grid-2{grid-template-columns:1fr} .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:860px){
   .crm{overflow:visible}
   .board{grid-template-columns:1fr;overflow:visible}
   .cd-edit{grid-template-columns:1fr}
+  .spiced{grid-template-columns:1fr}
   body{overflow:auto;display:block}
   main{grid-template-columns:1fr}
   .col-list{max-height:55vh;border-right:0;border-bottom:1px solid var(--border)}
@@ -1199,8 +1244,8 @@ async function loadCrm(){
 const scoreClass = v => v >= 7 ? 'ok' : v >= 5 ? 'warn' : 'danger';
 const fmtScore = v => typeof v === 'number' ? v.toFixed(1).replace('.', ',') : '–';
 const callDur = c => c.ended_at ? (new Date(c.ended_at) - new Date(c.started_at)) / 1000 : (c.analysis?.summary?.duration_s || 0);
-const callTitle = c => c.lead_name || 'Call sem nome';
-const callSub = c => c.lead_company || c.meeting_code || 'Sem empresa';
+const callTitle = c => c.lead_name || c.meeting_title || 'Call sem nome';
+const callSub = c => [c.lead_company, c.lead_role].filter(Boolean).join(' · ') || (c.lead_name && c.meeting_title) || c.meeting_code || 'Sem empresa';
 
 function crmFiltered(){
   const q = norm($('#crmQ').value).trim();
@@ -1211,7 +1256,8 @@ function crmFiltered(){
     if (new Date(c.started_at).getTime() < since) return false;
     if (q){
       const s = c.analysis?.summary || {};
-      const hay = norm([c.lead_name, c.lead_company, c.meeting_code, c.seller_name, c.crm_deal_id,
+      const hay = norm([c.lead_name, c.lead_company, c.lead_role, c.meeting_title, c.meeting_code, c.seller_name, c.crm_deal_id,
+        ...(c.participants || []).map(p => p.name),
         s.goals, s.situation, s.financial_impact, s.decision_process, s.critical_event].join(' '));
       if (!q.split(/\s+/).every(w => hay.includes(w))) return false;
     }
@@ -1229,8 +1275,10 @@ function stagePills(a){
 
 function kcardHTML(c){
   const a = c.analysis;
-  const st = CALL_STATUS[c.status];
+  const st = c.status === 'live' ? null : CALL_STATUS[c.status];
+  const people = (c.participants || []).filter(p => !p.is_self && p.role !== 'seller').slice(0, 4);
   return `<article class="kcard" draggable="true" tabindex="0" data-cid="${esc(c._id)}">
+    ${c.status === 'live' ? `<div class="kcard-live">${liveBadge(c.live_health)}</div>` : ''}
     <div class="kcard-top">
       <span class="kcard-title">${esc(callTitle(c))}</span>
       ${a ? `<span class="badge ${scoreClass(a.score)}" title="Nota SPICED (0–10)">${fmtScore(a.score)}</span>` : ''}
@@ -1243,6 +1291,7 @@ function kcardHTML(c){
       ${st ? `<span class="badge ${st[1]}">${st[0]}</span>` : ''}
       ${a?.is_critical ? '<span class="badge danger">Risco</span>' : ''}
     </div>
+    ${people.length ? `<div class="avs">${people.map(p => avatarHTML(p, 22)).join('')}<span class="muted small">${people.length === 1 ? esc(people[0].name) : people.length + ' participantes'}</span></div>` : ''}
     ${stagePills(a)}
   </article>`;
 }
@@ -1270,7 +1319,9 @@ function renderCrmStats(){
   const avg = scored.length ? scored.reduce((s, c) => s + c.analysis.score, 0) / scored.length : null;
   const won = list.filter(c => c.outcome === 'won').length;
   const risk = list.filter(c => c.analysis?.is_critical).length;
+  const liveNow = crm.calls.filter(c => c.status === 'live').length;
   $('#stats').innerHTML = `
+    ${liveNow ? `<div class="stat live"><b>${liveNow}</b><span>Ao vivo agora</span></div>` : ''}
     <div class="stat"><b>${list.length}</b><span>Calls no período</span></div>
     <div class="stat"><b>${avg === null ? '–' : fmtScore(avg)}</b><span>Nota média</span></div>
     <div class="stat"><b>${won}</b><span>Fechadas (won)</span></div>
@@ -1292,20 +1343,280 @@ async function setOutcome(id, outcome){
 }
 
 /* ---------- Detalhe da call ---------- */
+// Abre com /calls/:id (análise) + /calls/:id/live (etapas ao vivo, participantes, saúde).
+// Enquanto a call está ao vivo, busca só o que mudou a cada 3 s; o formulário não é redesenhado.
+const HEALTH = {
+  good: {label:'Fluindo', cls:'ok'},
+  warn: {label:'Atenção', cls:'warn'},
+  risk: {label:'Risco', cls:'danger'},
+  idle: {label:'Sem captura', cls:'neutral'},
+};
+const ROLE_LABEL = {seller:'Vendedor', lead:'Lead', internal:'Time'};
+const cd = {id:null, call:null, analysis:null, live:null, turns:[], turnsById:new Map(), events:[], poll:null, clock:null, lastSeq:-1, busy:false};
+
+function liveBadge(health, extra = ''){
+  const h = HEALTH[health?.level] || HEALTH.idle;
+  return `<span class="live-badge ${h.cls}${extra}" title="${esc(health?.reason || '')}"><i></i>Ao vivo · ${h.label}</span>`;
+}
+const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+function avatarHTML(p, size = 28){
+  const img = p.avatar_url && /^https:\/\//.test(p.avatar_url)
+    ? `<img src="${esc(p.avatar_url)}" alt="" referrerpolicy="no-referrer">` : '';
+  return `<span class="av ${esc(p.role || '')}" style="--av:${size}px" title="${esc(p.name)}">${img || esc(initials(p.name))}</span>`;
+}
+
+function closeCrmCall(){
+  clearInterval(cd.poll); clearInterval(cd.clock);
+  cd.poll = cd.clock = null; cd.id = null;
+}
+
 async function openCrmCall(id){
   const base = crm.calls.find(x => x._id === id);
   if (!base) return;
-  const body = $('#crmCallBody');
-  body.innerHTML = `<div class="muted">Carregando call…</div>`;
+  closeCrmCall();
+  Object.assign(cd, {id, call:{...base}, analysis:base.analysis, live:null, turns:[], turnsById:new Map(), events:[], lastSeq:-1});
+  $('#crmCallBody').innerHTML = `<div class="muted">Carregando call…</div>`;
   if (!$('#dlgCrmCall').open) $('#dlgCrmCall').showModal();
   try {
-    const d = await crmApi(`/calls/${encodeURIComponent(id)}`);
-    renderCrmCall({...base, ...d.call, seller_name: base.seller_name}, d.analysis, d.turns || [], d.events || []);
+    const [full, live] = await Promise.all([
+      crmApi(`/calls/${encodeURIComponent(id)}`),
+      crmApi(`/calls/${encodeURIComponent(id)}/live`),
+    ]);
+    if (cd.id !== id) return;
+    cd.analysis = full.analysis;
+    applyLive(live, true);
+    renderCrmCallShell();
+    renderCrmCallParts();
+    scheduleCrmPoll();
   } catch (e) {
     if (e.auth) return $('#dlgCrmCall').close();
-    body.innerHTML = `<div class="crm-err">${esc(e.message)}</div><div class="dlg-actions"><button class="btn" id="cdClose">Fechar</button></div>`;
+    $('#crmCallBody').innerHTML = `<div class="crm-err">${esc(e.message)}</div><div class="dlg-actions"><button class="btn" id="cdClose">Fechar</button></div>`;
     $('#cdClose').onclick = () => $('#dlgCrmCall').close();
   }
+}
+
+function applyLive(d, reset = false){
+  const seller = cd.call?.seller_name;
+  cd.call = {...cd.call, ...d.call, seller_name: seller};
+  cd.live = d.live;
+  if (reset){ cd.turns = []; cd.turnsById = new Map(); }
+  for (const t of d.turns || []){
+    if (cd.turnsById.has(t.seq)) continue;
+    cd.turns.push(t); cd.turnsById.set(t.seq, t);
+  }
+  cd.turns.sort((a, b) => a.seq - b.seq);
+  cd.lastSeq = cd.turns.length ? cd.turns.at(-1).seq : -1;
+  cd.events = d.events || [];
+  // reflete no quadro sem esperar o próximo refresh
+  const item = crm.calls.find(x => x._id === cd.id);
+  if (item){
+    Object.assign(item, {status: cd.call.status, participants: cd.call.participants, lead_name: cd.call.lead_name,
+      lead_company: cd.call.lead_company, lead_role: cd.call.lead_role, meeting_title: cd.call.meeting_title,
+      live_health: cd.call.status === 'live' ? d.live?.health : null});
+  }
+}
+
+function scheduleCrmPoll(){
+  clearInterval(cd.poll); clearInterval(cd.clock);
+  const status = cd.call.status;
+  if (status === 'live'){
+    cd.clock = setInterval(() => { const el = $('#cdTimer'); if (el) el.textContent = fmtDur((Date.now() - new Date(cd.call.started_at)) / 1000); }, 1000);
+    cd.poll = setInterval(pollCrmCall, 3000);
+  } else if (status === 'processing' || (status === 'done' && !cd.analysis)){
+    cd.poll = setInterval(pollCrmCall, 5000);
+  }
+}
+
+async function pollCrmCall(){
+  if (cd.busy || !cd.id || document.hidden) return;
+  cd.busy = true;
+  const id = cd.id, wasLive = cd.call.status === 'live';
+  try {
+    const d = await crmApi(`/calls/${encodeURIComponent(id)}/live?since=${cd.lastSeq}`);
+    if (cd.id !== id) return;
+    applyLive(d);
+    if (cd.call.status !== 'live' && !cd.analysis){
+      const full = await crmApi(`/calls/${encodeURIComponent(id)}`);
+      if (cd.id !== id) return;
+      cd.analysis = full.analysis;
+    }
+    if (wasLive !== (cd.call.status === 'live') || (cd.analysis && !$('#cdAnalysis')?.dataset.filled)){
+      renderCrmCallShell(); // status mudou: troca o cabeçalho e as seções
+      scheduleCrmPoll();
+      renderCrm();
+    }
+    renderCrmCallParts();
+  } catch (e) {
+    if (e.auth) $('#dlgCrmCall').close();
+  } finally {
+    cd.busy = false;
+  }
+}
+
+// Estrutura fixa do detalhe (inclui o formulário, que não é redesenhado durante o polling).
+function renderCrmCallShell(){
+  const c = cd.call, isLive = c.status === 'live';
+  const manual = new Set(c.manual_fields || []);
+  const field = (name, label, value) => {
+    const auto = value && !manual.has(name) && ['lead_name','lead_company','lead_role','meeting_title'].includes(name);
+    return `<label><span class="lbl">${label}${auto ? '<span class="auto" title="Preenchido automaticamente pela call">auto</span>' : ''}</span><input name="${name}" value="${esc(value || '')}" autocomplete="off"></label>`;
+  };
+  $('#crmCallBody').innerHTML = `
+    <div class="cd-head">
+      <div class="grow">
+        <div class="cd-kicker">${isLive ? liveBadge(c.live_health || cd.live?.health, '') : ''} <span id="cdStatus"></span></div>
+        <h2 id="cdTitle"></h2>
+        <div class="muted small" id="cdSub"></div>
+      </div>
+      <div class="cd-right" id="cdRight"></div>
+      <select class="status-select" id="cdOutcome" title="Resultado">${OUTCOMES.map(o => `<option value="${o.key}"${(c.outcome || 'open') === o.key ? ' selected' : ''}>${o.label}</option>`).join('')}</select>
+      <button class="btn icon ghost" id="cdClose" title="Fechar">✕</button>
+    </div>
+    <div id="cdHealth"></div>
+    <div id="cdPeople"></div>
+
+    <div class="card">
+      <div class="card-title">Dados da call <span class="spacer"></span><span class="muted small">Campos marcados com <span class="auto">auto</span> vêm da própria call; editar trava o valor.</span></div>
+      <form class="cd-edit" id="cdEdit" onsubmit="return false">
+        ${field('lead_name', 'Lead', c.lead_name)}
+        ${field('lead_company', 'Empresa', c.lead_company)}
+        ${field('lead_role', 'Cargo', c.lead_role)}
+        ${field('meeting_title', 'Título da reunião', c.meeting_title)}
+        ${field('crm_deal_id', 'ID do negócio', c.crm_deal_id)}
+        <button class="btn primary" id="cdSave">Salvar</button>
+      </form>
+    </div>
+
+    <div id="cdKpis"></div>
+    <div class="card"><div class="card-title">Etapas SPICED ${isLive ? '<span class="badge info">em tempo real</span>' : ''}<span class="spacer"></span><span class="muted small" id="cdStagesMeta"></span></div><div class="spiced" id="cdStages"></div></div>
+    <div id="cdAnalysis"></div>
+    <div class="grid-2" style="margin-top:14px">
+      <div class="card"><div class="card-title">Transcrição <span class="muted small" id="cdTurnCount"></span>${isLive ? '<span class="spacer"></span><label class="check small"><input type="checkbox" id="cdFollow" checked> Acompanhar</label>' : ''}</div><div class="turns" id="cdTurns"></div></div>
+      <div class="card"><div class="card-title">${isLive ? 'Sugestões e sinais ao vivo' : 'Linha do tempo ao vivo'}</div><div id="cdEvents"></div>${isLive ? '<div class="card-title" style="margin:14px 0 8px">Resumo até agora</div><div id="cdSummary" class="muted"></div>' : ''}</div>
+    </div>`;
+
+  $('#cdClose').onclick = () => $('#dlgCrmCall').close();
+  $('#cdOutcome').onchange = e => setOutcome(c._id, e.target.value);
+  $('#cdSave').onclick = async () => {
+    const patch = readForm($('#cdEdit')); delete patch.checklist;
+    try {
+      const upd = await crmApi(`/calls/${encodeURIComponent(c._id)}`, {method:'PATCH', body: JSON.stringify(patch)});
+      cd.call = {...cd.call, ...upd, seller_name: cd.call.seller_name};
+      const item = crm.calls.find(x => x._id === c._id);
+      if (item) Object.assign(item, patch, {manual_fields: upd.manual_fields});
+      renderCrm(); renderCrmCallShell(); renderCrmCallParts(); toast('Call atualizada');
+    } catch (e) { if (!e.auth) toast('Não foi possível salvar: ' + e.message, 'warn'); }
+  };
+}
+
+// Partes que mudam durante a call (redesenhadas a cada atualização).
+function renderCrmCallParts(){
+  const c = cd.call, a = cd.analysis, live = cd.live || {}, isLive = c.status === 'live';
+  const st = CALL_STATUS[c.status];
+  const health = isLive ? (live.health || c.live_health) : null;
+
+  const badge = document.querySelector('#crmCallBody .live-badge');
+  if (badge && health) badge.outerHTML = liveBadge(health);
+  $('#cdStatus').innerHTML = !isLive && st ? `<span class="badge ${st[1]}">${st[0]}</span>` : '';
+  $('#cdTitle').textContent = callTitle(c);
+  const who = [c.lead_company, c.lead_role].filter(Boolean).join(' · ');
+  $('#cdSub').innerHTML = `${esc(who || callSub(c))} · Vendedor: ${esc(c.seller_name || '–')} · ${fmtData(c.started_at)} ${fmtHora(c.started_at)}${c.meeting_code ? ' · ' + esc(c.meeting_code) : ''}`;
+  $('#cdRight').innerHTML = isLive
+    ? `<div class="score" id="cdTimer">${fmtDur((Date.now() - new Date(c.started_at)) / 1000)}</div><div class="muted small">Duração</div>`
+    : a ? `<div class="score ${scoreClass(a.score)}">${fmtScore(a.score)}</div><div class="muted small">Nota SPICED</div>`
+    : callDur(c) ? `<div class="score">${fmtDur(callDur(c))}</div><div class="muted small">Duração</div>` : '';
+
+  // Saúde
+  $('#cdHealth').innerHTML = health ? `<div class="health ${HEALTH[health.level]?.cls || 'neutral'}"><i></i><b>${HEALTH[health.level]?.label || ''}</b><span>${esc(health.reason || '')}</span></div>` : '';
+
+  // Participantes
+  const people = (c.participants || []).slice().sort((x, y) => (y.talk_ms || 0) - (x.talk_ms || 0));
+  $('#cdPeople').innerHTML = people.length ? `<div class="people">${people.map(p => `
+    <div class="person${p.left_at ? ' left' : ''}">
+      ${avatarHTML(p, 36)}
+      <div><b>${esc(p.name)}</b><div class="muted small">${ROLE_LABEL[p.role] || 'Participante'}${p.is_self ? ' (você)' : ''} · ${fmtDur((p.talk_ms || 0) / 1000)} de fala · ${p.turn_count || 0} falas</div>
+      <div class="muted small">${p.first_seen_at ? 'Entrou ' + fmtHora(p.first_seen_at) : ''}${p.left_at ? ' · saiu ' + fmtHora(p.left_at) : ''}</div></div>
+    </div>`).join('')}</div>` : (isLive ? '<div class="muted small" style="margin:0 0 14px">Aguardando a lista de participantes da extensão…</div>' : '');
+
+  // KPIs
+  const talkTotal = people.reduce((s, p) => s + (p.talk_ms || 0), 0);
+  const sellerTalk = people.filter(p => p.role !== 'lead').reduce((s, p) => s + (p.talk_ms || 0), 0);
+  $('#cdKpis').innerHTML = a ? `<div class="kpis">
+      <div class="stat"><b>${Math.round(a.seller_talk_pct || 0)}%</b><span>Vendedor falou</span></div>
+      <div class="stat"><b>${a.question_count ?? 0}</b><span>Perguntas</span></div>
+      <div class="stat"><b>${a.turn_count ?? 0}</b><span>Trocas de turno</span></div>
+      <div class="stat"><b>${fmtDur(a.longest_monologue_s)}</b><span>Maior monólogo</span></div>
+      ${typeof a.cost_usd === 'number' ? `<div class="stat"><b>US$ ${a.cost_usd.toFixed(3)}</b><span>Custo da análise</span></div>` : ''}
+    </div>` : isLive ? `<div class="kpis">
+      <div class="stat"><b>${cd.turns.length}</b><span>Falas capturadas</span></div>
+      <div class="stat"><b>${talkTotal ? Math.round(sellerTalk / talkTotal * 100) + '%' : '–'}</b><span>Vendedor falou</span></div>
+      <div class="stat"><b>${cd.turns.filter(t => t.role === 'seller' && t.text.includes('?')).length}</b><span>Perguntas</span></div>
+      <div class="stat"><b>${people.length}</b><span>Participantes</span></div>
+    </div>` : '';
+
+  // Etapas SPICED: status (análise final ou ao vivo) + contexto, perguntas e citações ao vivo
+  const stages = a?.stages || live.stages || {};
+  const know = live.knowledge || {};
+  const quote = id => cd.turnsById.get(id);
+  const done = STAGES.filter(([k]) => stages[k]?.status === 'complete').length;
+  $('#cdStagesMeta').textContent = `${done} de ${STAGES.length} completas`;
+  $('#cdStages').innerHTML = STAGES.map(([k, l]) => {
+    const x = stages[k] || {status:'none'}; const [lbl, cls] = STAGE_STATUS[x.status] || [x.status, 'neutral'];
+    const kn = know[k] || {};
+    const qs = (kn.question_turn_ids || []).map(quote).filter(Boolean);
+    const ls = (kn.quote_turn_ids || []).map(quote).filter(Boolean);
+    return `<section class="stage ${esc(x.status)}">
+      <header><span class="stg ${esc(x.status)}">${k}</span><b>${l}</b><span class="badge ${cls}">${lbl}</span></header>
+      ${x.reason ? `<p class="why">${esc(x.reason)}</p>` : ''}
+      ${kn.context ? `<div class="ctx"><span>Contexto</span>${esc(kn.context)}</div>` : ''}
+      ${qs.length ? `<div class="qlist"><span>Perguntas feitas</span>${qs.map(t => `<q><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
+      ${ls.length ? `<div class="qlist lead"><span>O que o lead disse</span>${ls.map(t => `<q><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
+      ${!x.reason && !kn.context && !qs.length && !ls.length ? `<p class="muted small">${isLive ? 'Ainda não abordada.' : 'Sem informações.'}</p>` : ''}
+    </section>`;
+  }).join('');
+
+  // Análise pós-call
+  const an = $('#cdAnalysis');
+  if (a){
+    const s = a.summary || {};
+    const sumRows = [['Objetivos', s.goals], ['Situação', s.situation], ['Impacto financeiro', s.financial_impact],
+      ['Processo de decisão', s.decision_process], ['Evento crítico', s.critical_event]].filter(r => r[1]);
+    const risks = [
+      ...(a.objections || []).map(o => `<li><div class="grow">${esc(o.text || o.objection || '')}</div><span class="badge ${o.handled ? 'ok' : 'warn'}">${o.handled ? 'Tratada' : 'Não tratada'}</span></li>`),
+      ...(a.risk_signals || []).map(r => `<li><div class="grow">${esc(r.note || '')}</div><span class="badge danger">${r.type === 'overpromise' ? 'Overpromise' : 'Risco'}</span></li>`),
+    ];
+    an.dataset.filled = '1';
+    an.innerHTML = `
+      <div class="card"><div class="card-title">Resumo da call</div>
+        ${sumRows.length ? `<dl class="sum">${sumRows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '<div class="muted">Resumo não disponível.</div>'}</div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title">Próximos passos</div>
+          ${(a.next_steps || []).length ? `<ul class="rows">${a.next_steps.map(n => { const p = PRIORITY[n.priority] || [n.priority || '', 'neutral'];
+            return `<li><div class="grow">${esc(n.text || n.task || '')}<div class="muted small">${n.owner === 'manager' ? 'Gestor' : 'Vendedor'}</div></div>${p[0] ? `<span class="badge ${p[1]}">${esc(p[0])}</span>` : ''}</li>`; }).join('')}</ul>` : '<div class="muted">Nenhum passo definido.</div>'}</div>
+        <div class="card"><div class="card-title">Objeções e riscos</div>
+          ${risks.length ? `<ul class="rows">${risks.join('')}</ul>` : '<div class="muted">Nenhuma objeção ou risco.</div>'}</div>
+      </div>`;
+  } else {
+    delete an.dataset.filled;
+    an.innerHTML = isLive ? '' : `<div class="card"><div class="card-title">Análise</div><div class="muted">${
+      c.status === 'failed' ? (cd.turns.length ? 'A análise pós-call falhou. Verifique os logs do backend.' : 'Nenhuma fala foi capturada nesta call, então não há o que analisar. Confira se as legendas do Meet estavam ativas.')
+      : 'A análise desta call está sendo processada. Esta tela atualiza sozinha.'}</div></div>`;
+  }
+
+  // Transcrição
+  const box = $('#cdTurns');
+  $('#cdTurnCount').textContent = `(${cd.turns.length} falas)`;
+  box.innerHTML = cd.turns.map(t => `<div class="turn ${esc(t.role)}"><span class="t">${msClock(t.started_ms)}</span><div><b>${esc(t.speaker_name || ROLE_LABEL[t.role] || '')}</b>${esc(t.text)}</div></div>`).join('')
+    || `<div class="muted">${isLive ? 'Aguardando as primeiras falas… (as legendas do Meet precisam estar ativas)' : 'Nenhuma fala registrada.'}</div>`;
+  if (isLive && ($('#cdFollow')?.checked ?? true)) box.scrollTop = box.scrollHeight;
+
+  // Eventos
+  const evs = isLive ? cd.events.slice().reverse() : cd.events;
+  $('#cdEvents').innerHTML = evs.length
+    ? `<ul class="rows">${evs.map(ev => `<li><span class="t">${msClock(ev.at_ms)}</span><span class="badge ${ev.type === 'stage_change' ? 'ok' : ev.type === 'suggestion' ? 'info' : 'warn'}">${EVENT_LABEL[ev.type] || esc(ev.type)}</span><div class="grow">${esc(eventText(ev))}</div></li>`).join('')}</ul>`
+    : `<div class="muted">${isLive ? 'As sugestões e sinais aparecem aqui assim que a IA avaliar as primeiras falas.' : 'Nenhum evento ao vivo.'}</div>`;
+  const sm = $('#cdSummary');
+  if (sm) sm.textContent = live.summary || 'O resumo aparece depois de alguns minutos de conversa.';
 }
 
 const msClock = ms => fmtDur((ms || 0) / 1000);
@@ -1320,98 +1631,6 @@ function eventText(ev){
   return p.note || p.text || '';
 }
 
-function renderCrmCall(c, a, turns, events){
-  const s = a?.summary || {};
-  const st = CALL_STATUS[c.status];
-  const sumRows = [['Objetivos', s.goals], ['Situação', s.situation], ['Impacto financeiro', s.financial_impact],
-    ['Processo de decisão', s.decision_process], ['Evento crítico', s.critical_event]].filter(r => r[1]);
-  const risks = [
-    ...(a?.objections || []).map(o => `<li><div class="grow">${esc(o.text || o.objection || '')}</div><span class="badge ${o.handled ? 'ok' : 'warn'}">${o.handled ? 'Tratada' : 'Não tratada'}</span></li>`),
-    ...(a?.risk_signals || []).map(r => `<li><div class="grow">${esc(r.note || '')}</div><span class="badge danger">${r.type === 'overpromise' ? 'Overpromise' : 'Risco'}</span></li>`),
-  ];
-  const pending = !a ? `<div class="card"><div class="card-title">Análise</div><div class="muted">${
-    c.status === 'live' ? 'A call ainda está acontecendo. A análise sai depois que o vendedor encerrar.'
-    : c.status === 'failed' ? 'A análise pós-call falhou. Verifique os logs do backend.'
-    : 'A análise desta call ainda está sendo processada. Tente de novo em instantes.'}</div></div>` : '';
-
-  $('#crmCallBody').innerHTML = `
-    <div class="cd-head">
-      <div class="grow">
-        <h2>${esc(callTitle(c))}</h2>
-        <div class="muted small">${esc(callSub(c))} · ${esc(c.seller_name || 'Vendedor')} · ${fmtData(c.started_at)} ${fmtHora(c.started_at)}${callDur(c) ? ' · ' + fmtDur(callDur(c)) : ''}
-          ${st ? ` <span class="badge ${st[1]}">${st[0]}</span>` : ''}${a?.is_critical ? ' <span class="badge danger">Call crítica</span>' : ''}</div>
-      </div>
-      ${a ? `<div style="text-align:right"><div class="score ${scoreClass(a.score)}">${fmtScore(a.score)}</div><div class="muted small">Nota SPICED</div></div>` : ''}
-      <select class="status-select" id="cdOutcome" title="Resultado">${OUTCOMES.map(o => `<option value="${o.key}"${(c.outcome || 'open') === o.key ? ' selected' : ''}>${o.label}</option>`).join('')}</select>
-      <button class="btn icon ghost" id="cdClose" title="Fechar">✕</button>
-    </div>
-
-    <div class="card">
-      <form class="cd-edit" id="cdEdit" onsubmit="return false">
-        <label>Lead<input name="lead_name" value="${esc(c.lead_name || '')}" autocomplete="off"></label>
-        <label>Empresa<input name="lead_company" value="${esc(c.lead_company || '')}" autocomplete="off"></label>
-        <label>ID do negócio<input name="crm_deal_id" value="${esc(c.crm_deal_id || '')}" autocomplete="off"></label>
-        <button class="btn primary" id="cdSave">Salvar</button>
-      </form>
-    </div>
-
-    ${pending}
-    ${a ? `
-    <div class="kpis">
-      <div class="stat"><b>${Math.round(a.seller_talk_pct || 0)}%</b><span>Vendedor falou</span></div>
-      <div class="stat"><b>${a.question_count ?? 0}</b><span>Perguntas</span></div>
-      <div class="stat"><b>${a.turn_count ?? 0}</b><span>Trocas de turno</span></div>
-      <div class="stat"><b>${fmtDur(a.longest_monologue_s)}</b><span>Maior monólogo</span></div>
-      ${typeof a.cost_usd === 'number' ? `<div class="stat"><b>US$ ${a.cost_usd.toFixed(3)}</b><span>Custo da análise</span></div>` : ''}
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title">Resumo</div>
-        ${sumRows.length ? `<dl class="sum">${sumRows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '<div class="muted">Resumo não disponível.</div>'}
-      </div>
-      <div class="card">
-        <div class="card-title">Etapas SPICED</div>
-        <ul class="rows">${STAGES.map(([k, l]) => {
-          const x = a.stages?.[k] || {status:'none'}; const [lbl, cls] = STAGE_STATUS[x.status] || [x.status, 'neutral'];
-          return `<li><span class="stg ${x.status}">${k}</span><div class="grow"><b>${l}</b><div class="muted small">${esc(x.reason || '')}</div></div><span class="badge ${cls}">${lbl}</span></li>`;
-        }).join('')}</ul>
-      </div>
-    </div>
-    <div class="grid-2" style="margin-top:14px">
-      <div class="card">
-        <div class="card-title">Próximos passos</div>
-        ${(a.next_steps || []).length ? `<ul class="rows">${a.next_steps.map(n => { const p = PRIORITY[n.priority] || [n.priority || '', 'neutral'];
-          return `<li><div class="grow">${esc(n.text || n.task || '')}<div class="muted small">${n.owner === 'manager' ? 'Gestor' : 'Vendedor'}</div></div>${p[0] ? `<span class="badge ${p[1]}">${esc(p[0])}</span>` : ''}</li>`; }).join('')}</ul>` : '<div class="muted">Nenhum passo definido.</div>'}
-      </div>
-      <div class="card">
-        <div class="card-title">Objeções e riscos</div>
-        ${risks.length ? `<ul class="rows">${risks.join('')}</ul>` : '<div class="muted">Nenhuma objeção ou risco.</div>'}
-      </div>
-    </div>` : ''}
-
-    ${events.length ? `<div class="card" style="margin-top:14px"><div class="card-title">Linha do tempo ao vivo</div>
-      <ul class="rows">${events.map(ev => `<li><span class="t">${msClock(ev.at_ms)}</span><span class="badge ${ev.type === 'stage_change' ? 'ok' : ev.type === 'suggestion' ? 'info' : 'warn'}">${EVENT_LABEL[ev.type] || esc(ev.type)}</span><div class="grow">${esc(eventText(ev))}</div></li>`).join('')}</ul></div>` : ''}
-
-    <div class="card" style="margin-top:14px">
-      <details${a ? '' : ' open'}>
-        <summary>Transcrição (${turns.length} falas)</summary>
-        <div class="turns">${turns.map(t => `<div class="turn ${esc(t.role)}"><span class="t">${msClock(t.started_ms)}</span><div><b>${esc(t.speaker_name || (t.role === 'seller' ? 'Vendedor' : t.role === 'lead' ? 'Lead' : 'Interno'))}</b>${esc(t.text)}</div></div>`).join('') || '<div class="muted">Nenhuma fala registrada.</div>'}</div>
-      </details>
-    </div>`;
-
-  $('#cdClose').onclick = () => $('#dlgCrmCall').close();
-  $('#cdOutcome').onchange = e => setOutcome(c._id, e.target.value);
-  $('#cdSave').onclick = async () => {
-    const patch = readForm($('#cdEdit')); delete patch.checklist;
-    try {
-      const upd = await crmApi(`/calls/${encodeURIComponent(c._id)}`, {method:'PATCH', body: JSON.stringify(patch)});
-      const item = crm.calls.find(x => x._id === c._id);
-      if (item) Object.assign(item, {lead_name: upd.lead_name, lead_company: upd.lead_company, crm_deal_id: upd.crm_deal_id});
-      renderCrm(); toast('Call atualizada');
-    } catch (e) { if (!e.auth) toast('Não foi possível salvar: ' + e.message, 'warn'); }
-  };
-}
-
 /* ---------- Troca de módulo ---------- */
 function setMode(mode){
   settings.mode = mode; saveSettings();
@@ -1421,7 +1640,12 @@ function setMode(mode){
   clearInterval(crm.timer); crm.timer = null;
   if (mode === 'crm'){
     loadCrm();
-    crm.timer = setInterval(() => { if (!document.hidden && crm.loaded && !$('#dlgCrmCall').open) loadCrm(); }, 30000);
+    let tick = 0;
+    crm.timer = setInterval(() => {
+      tick += 1;
+      const hasLive = crm.calls.some(c => c.status === 'live');
+      if (!document.hidden && crm.loaded && !$('#dlgCrmCall').open && (hasLive || tick % 6 === 0)) loadCrm();
+    }, 5000);
   }
   renderStats();
 }
@@ -1440,6 +1664,7 @@ function bindCrm(){
   };
   $('#crmLogout').onclick = () => { crm.token = ''; crmSaveCreds(); crmShowLogin(); };
   $('#crmRefresh').onclick = loadCrm;
+  $('#dlgCrmCall').addEventListener('close', () => { closeCrmCall(); renderCrm(); });
   window.addEventListener('hashchange', () => { if (/token=/.test(location.hash)){ crmLoadCreds(); setMode('crm'); } });
   $('#crmQ').addEventListener('input', renderCrm);
   ['crmSeller', 'crmPeriodo'].forEach(id => $('#' + id).addEventListener('change', renderCrm));
