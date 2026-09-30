@@ -42,9 +42,8 @@
   .icon-btn:hover { background: rgba(255,255,255,0.1); }
   .icon-btn svg { width: 18px; height: 18px; fill: #9aa0a6; }
   .brand { display: flex; align-items: center; gap: calc(8px * var(--s)); }
-  /* Logo oficial (assets/icon.png): só a altura é definida, a largura segue a proporção original. */
-  .logo { height: var(--logo, 24px); width: auto; flex: none; display: block; }
-  .name { font-weight: 600; color: #bdc1c6; white-space: nowrap; }
+  /* Logo oficial (assets/logo-dark.png, 940×350): só a altura é definida, a largura segue a proporção original. */
+  .logo { height: var(--logo, 30px); width: auto; flex: none; display: block; }
   .stages { display: flex; gap: calc(6px * var(--s)); }
   .dot {
     position: relative; width: calc(30px * var(--s)); height: calc(30px * var(--s)); border-radius: 50%;
@@ -101,8 +100,7 @@
           <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
         </div>
         <span class="brand">
-          <img class="logo" alt="" draggable="false">
-          <span class="name">CallTrack</span>
+          <img class="logo" alt="CallTrack" draggable="false">
         </span>
         <button class="icon-btn toggle-collapse" title="Minimizar/Expandir">
           <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
@@ -130,8 +128,8 @@
     const startBtn = $('.start');
     const endBtn = $('.end');
     const tip = $('.tip');
-    // icon.png da extensão é o mesmo arquivo de assets/icon.png (logo azul do CallTrack).
-    $('.logo').src = self.chrome?.runtime?.getURL?.('icon.png') || 'icon.png';
+    // logo-dark.png da extensão é o mesmo arquivo de assets/logo-dark.png (versão para fundo escuro).
+    $('.logo').src = self.chrome?.runtime?.getURL?.('logo-dark.png') || 'logo-dark.png';
     let playbookStages = [];
     const stageInfo = new Map(); // key -> { label, criteria, status, reason }
 
@@ -171,9 +169,9 @@
       const s = tall ? Math.min(1.6, Math.max(1, 1 + (h - TALL_H) / 220)) : 1;
       bar.style.setProperty('--s', s.toFixed(3));
       const byWidth = w ? Math.min(1.6, Math.max(1, 1 + (w - 960) / 900)) : 1;
-      let logo = 24 * Math.max(s, byWidth);
+      let logo = 30 * Math.max(s, byWidth);
       if (h && !tall) logo = Math.min(logo, h - 20);
-      bar.style.setProperty('--logo', `${Math.max(24, Math.round(logo))}px`);
+      bar.style.setProperty('--logo', `${Math.max(30, Math.round(logo))}px`);
     }
 
     function clampIntoView() {
