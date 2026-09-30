@@ -14,7 +14,7 @@
 
   const cfg = await chrome.storage.sync.get(['backendUrl', 'token']);
   const base = (cfg.backendUrl || '').replace(/\/$/, '');
-  const panel = SpicedPanel.createPanel({ 
+  const panel = CallTrackPanel.createPanel({ 
     onStart: start, 
     onEnd: () => end('manual'),
     onCrm: () => window.open(`${base}/#token=${encodeURIComponent(cfg.token)}`, '_blank')
@@ -100,7 +100,7 @@
       if (msg.type === 'suggestion.new') panel.setSuggestion(msg.suggestion);
       if (msg.type === 'turns.ack') queue = queue.filter((t) => t.seq > msg.upTo);
       if (msg.type === 'case.request') panel.setSuggestion({ text: 'O lead pediu um exemplo parecido. Cite um case do mesmo segmento.' });
-      if (msg.type === 'error') console.warn('[SPICED]', msg.message);
+      if (msg.type === 'error') console.warn('[CallTrack]', msg.message);
     };
     ws.onclose = () => {
       if (ended) return;
@@ -124,9 +124,9 @@
 
       const startedAt = Date.now();
       lastCaptionAt = startedAt;
-      tracker = new SpicedCaptions.CaptionTracker({
+      tracker = new CallTrackCaptions.CaptionTracker({
         startedAt,
-        onCommit: (t) => queue.push({ ...t, role: SpicedCaptions.roleFor(t.speaker_name, S.selfLabels) }),
+        onCommit: (t) => queue.push({ ...t, role: CallTrackCaptions.roleFor(t.speaker_name, S.selfLabels) }),
       });
       enableCaptions();
       watchCaptions();

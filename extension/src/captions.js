@@ -4,7 +4,7 @@
 // o trecho novo vira outra fala.
 //
 // Compatível com dois ambientes:
-//   Browser (content script MV3): expõe SpicedPanel via self.SpicedCaptions
+//   Browser (content script MV3): expõe self.CallTrackCaptions
 //   Node.js (testes via createRequire): expõe via module.exports
 
 const STABLE_MS = 1500;
@@ -85,14 +85,14 @@ function roleFor(speaker, selfLabels) {
   return selfLabels.some((l) => l.toLowerCase() === s) ? 'seller' : 'lead';
 }
 
-const SpicedCaptionsApi = { CaptionTracker, roleFor, STABLE_MS };
+const CallTrackCaptionsApi = { CaptionTracker, roleFor, STABLE_MS };
 
 // Node.js (CommonJS via createRequire nos testes)
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = SpicedCaptionsApi;
+  module.exports = CallTrackCaptionsApi;
 }
 
 // Browser (content script MV3) — self = window no browser
 if (typeof self !== 'undefined') {
-  self.SpicedCaptions = SpicedCaptionsApi;
+  self.CallTrackCaptions = CallTrackCaptionsApi;
 }

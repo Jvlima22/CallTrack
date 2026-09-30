@@ -1,24 +1,36 @@
-// Painel do SPICED dentro do Meet. Shadow DOM para o CSS do Meet não vazar.
+// Painel do CallTrack dentro do Meet. Shadow DOM para o CSS do Meet não vazar.
+// O usuário pode arrastar (alça à esquerda) e redimensionar (bordas de cima/direita e canto);
+// posição e tamanho ficam salvos em chrome.storage.local.
 (function (root) {
   const STATUS_LABEL = { none: 'Não abordado', partial: 'Parcial', complete: 'Completo' };
+  const STORE_KEY = 'ctPanelLayout';
+  const MARGIN = 8;          // distância mínima da borda da janela
+  const MIN_W = 360;
+  const MIN_H = 52;
+  const TALL_H = 104;        // a partir daqui a sugestão ganha uma linha própria
 
   const CSS = `
   :host { all: initial; }
   .bar {
+    --s: 1;
     position: fixed; left: 16px; bottom: 88px; z-index: 2147483000;
-    display: flex; align-items: center; gap: 14px;
-    max-width: min(960px, calc(100vw - 32px));
-    padding: 10px 12px 10px 14px; border-radius: 12px;
+    box-sizing: border-box;
+    display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 10px 14px;
+    max-width: calc(100vw - ${MARGIN * 2}px); max-height: calc(100vh - ${MARGIN * 2}px);
+    padding: 10px 12px 10px 14px; border-radius: 12px; overflow: hidden;
     background: #202124; border: 1px solid #3c4043; color: #e8eaed;
-    font: 13px/1.35 "Google Sans", Roboto, Arial, sans-serif;
+    font: calc(13px * var(--s))/1.35 "Google Sans", Roboto, Arial, sans-serif;
     box-shadow: 0 2px 8px rgba(0,0,0,.35);
   }
-  .bar.collapsed .stages, .bar.collapsed .insight, .bar.collapsed .meta, .bar.collapsed .start, .bar.collapsed .end {
-    display: none !important;
-  }
+  .bar:not(.sized) { max-width: min(960px, calc(100vw - ${MARGIN * 2}px)); }
+  .bar.tall { align-content: flex-start; }
+  .bar.tall .insight { order: 10; flex-basis: 100%; font-size: calc(15px * var(--s)); line-height: 1.4; overflow: auto; }
+  .bar.collapsed { width: auto !important; height: auto !important; }
+  .bar.collapsed .stages, .bar.collapsed .insight, .bar.collapsed .meta, .bar.collapsed .start,
+  .bar.collapsed .end, .bar.collapsed .rz { display: none !important; }
   .drag-handle {
     cursor: grab; display: flex; align-items: center; justify-content: center;
-    margin-left: -6px; margin-right: -6px; border-radius: 4px; padding: 4px;
+    margin-left: -6px; margin-right: -6px; border-radius: 4px; padding: 4px; touch-action: none;
   }
   .drag-handle:active { cursor: grabbing; }
   .drag-handle svg { width: 18px; height: 18px; fill: #9aa0a6; }
@@ -30,10 +42,10 @@
   .icon-btn:hover { background: rgba(255,255,255,0.1); }
   .icon-btn svg { width: 18px; height: 18px; fill: #9aa0a6; }
   .name { font-weight: 600; color: #bdc1c6; white-space: nowrap; }
-  .stages { display: flex; gap: 6px; }
+  .stages { display: flex; gap: calc(6px * var(--s)); }
   .dot {
-    position: relative; width: 30px; height: 30px; border-radius: 50%;
-    display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    position: relative; width: calc(30px * var(--s)); height: calc(30px * var(--s)); border-radius: 50%;
+    display: grid; place-items: center; font-size: calc(11px * var(--s)); font-weight: 700;
     border: 1.5px solid #5f6368; color: #9aa0a6; background: transparent; cursor: default;
     transition: background-color .25s, border-color .25s, color .25s;
   }
@@ -41,12 +53,12 @@
   .dot[data-status="complete"] { background: #81c995; border-color: #81c995; color: #202124; }
   .dot:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
   .tip {
-    display: none; position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    display: none; position: fixed; z-index: 1;
     width: 260px; padding: 10px 12px; border-radius: 8px;
     background: #303134; border: 1px solid #5f6368; color: #e8eaed;
-    font-weight: 400; font-size: 12px; text-align: left; line-height: 1.4;
+    font: 400 12px/1.4 "Google Sans", Roboto, Arial, sans-serif; text-align: left;
   }
-  .dot:hover .tip, .dot:focus .tip { display: block; }
+  .tip.show { display: block; }
   .tip b { display: block; font-size: 13px; margin-bottom: 2px; }
   .tip .st { color: #bdc1c6; margin-bottom: 6px; }
   .tip .crit { color: #9aa0a6; margin-top: 6px; }
@@ -61,14 +73,23 @@
   button.primary { background: #8ab4f8; border-color: #8ab4f8; color: #202124; }
   button.end { color: #f28b82; border-color: #f28b82; }
   button:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
-  .meta { color: #9aa0a6; font-size: 11px; white-space: nowrap; }
+  .meta { color: #9aa0a6; font-size: calc(11px * var(--s)); white-space: nowrap; }
   .hidden { display: none !important; }
+  .rz { position: absolute; z-index: 2; touch-action: none; }
+  .rz-top { top: 0; left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+  .rz-right { top: 12px; right: 0; bottom: 12px; width: 6px; cursor: ew-resize; }
+  .rz-corner { top: 0; right: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+  .rz-corner::after {
+    content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px;
+    border-top: 2px solid #5f6368; border-right: 2px solid #5f6368; border-top-right-radius: 3px;
+  }
+  .bar:hover .rz-corner::after { border-color: #9aa0a6; }
   @media (prefers-reduced-motion: reduce) { .dot, .insight.fresh { transition: none; animation: none; } }
   `;
 
   function createPanel({ onStart, onEnd, onCrm }) {
     const host = document.createElement('div');
-    host.id = 'spiced-copilot-root';
+    host.id = 'calltrack-copilot-root';
     const shadow = host.attachShadow({ mode: 'open' });
     shadow.innerHTML = `
       <style>${CSS}</style>
@@ -80,7 +101,7 @@
         <button class="icon-btn toggle-collapse" title="Minimizar/Expandir">
           <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
         </button>
-        <button class="icon-btn open-crm" title="Abrir CRM">
+        <button class="icon-btn open-crm" title="Abrir CRM do CallTrack">
           <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z"/></svg>
         </button>
         <div class="stages hidden" role="list"></div>
@@ -88,7 +109,11 @@
         <span class="meta hidden"></span>
         <button class="primary start">Analisar call</button>
         <button class="end hidden">Encerrar call</button>
-      </div>`;
+        <div class="rz rz-top" data-rz="n" title="Arraste para mudar a altura"></div>
+        <div class="rz rz-right" data-rz="e" title="Arraste para mudar a largura"></div>
+        <div class="rz rz-corner" data-rz="ne" title="Arraste para redimensionar · duplo clique volta ao tamanho padrão"></div>
+      </div>
+      <div class="tip" role="tooltip"><b></b><div class="st"></div><div class="why"></div><div class="crit"></div></div>`;
     document.documentElement.appendChild(host);
 
     const $ = (s) => shadow.querySelector(s);
@@ -98,50 +123,140 @@
     const meta = $('.meta');
     const startBtn = $('.start');
     const endBtn = $('.end');
+    const tip = $('.tip');
     let playbookStages = [];
+    const stageInfo = new Map(); // key -> { label, criteria, status, reason }
 
     startBtn.addEventListener('click', () => onStart());
     endBtn.addEventListener('click', () => onEnd());
+    $('.open-crm').addEventListener('click', () => { if (onCrm) onCrm(); });
 
-    // Toggle Collapse
     let collapsed = false;
     $('.toggle-collapse').addEventListener('click', () => {
       collapsed = !collapsed;
       bar.classList.toggle('collapsed', collapsed);
       $('.toggle-collapse svg').style.transform = collapsed ? 'rotate(180deg)' : '';
+      clampIntoView();
     });
 
-    // Open CRM
-    $('.open-crm').addEventListener('click', () => {
-      if (onCrm) onCrm();
+    // ─── Layout: posição (left/bottom) e tamanho (width/height) ────────────────
+    // left/bottom ancoram o canto inferior esquerdo; redimensionar pelo topo cresce para cima.
+    const layout = { left: 16, bottom: 88, width: null, height: null };
+
+    function applyLayout() {
+      bar.style.left = `${layout.left}px`;
+      bar.style.bottom = `${layout.bottom}px`;
+      bar.style.width = layout.width ? `${layout.width}px` : '';
+      bar.style.height = layout.height ? `${layout.height}px` : '';
+      bar.classList.toggle('sized', !!(layout.width || layout.height));
+      updateScale();
+    }
+
+    // Conteúdo acompanha o tamanho: acima de TALL_H a sugestão vai para a linha de baixo
+    // e bolinhas/textos crescem proporcionalmente à altura (até 1,6x).
+    function updateScale() {
+      const h = collapsed ? 0 : (layout.height || 0);
+      const tall = h >= TALL_H;
+      bar.classList.toggle('tall', tall);
+      const s = tall ? Math.min(1.6, Math.max(1, 1 + (h - TALL_H) / 220)) : 1;
+      bar.style.setProperty('--s', s.toFixed(3));
+    }
+
+    function clampIntoView() {
+      const r = bar.getBoundingClientRect();
+      const maxLeft = Math.max(MARGIN, window.innerWidth - r.width - MARGIN);
+      const maxBottom = Math.max(MARGIN, window.innerHeight - r.height - MARGIN);
+      layout.left = Math.min(Math.max(MARGIN, layout.left), maxLeft);
+      layout.bottom = Math.min(Math.max(MARGIN, layout.bottom), maxBottom);
+      if (layout.width) layout.width = Math.min(layout.width, window.innerWidth - layout.left - MARGIN);
+      if (layout.height) layout.height = Math.min(layout.height, window.innerHeight - layout.bottom - MARGIN);
+      applyLayout();
+    }
+
+    function saveLayout() {
+      try { chrome.storage?.local?.set({ [STORE_KEY]: layout }); } catch { /* contexto da extensão invalidado */ }
+    }
+
+    try {
+      chrome.storage?.local?.get(STORE_KEY).then((v) => {
+        const saved = v?.[STORE_KEY];
+        if (saved && typeof saved === 'object') {
+          for (const k of Object.keys(layout)) if (typeof saved[k] === 'number' || saved[k] === null) layout[k] = saved[k];
+          clampIntoView();
+        }
+      }).catch(() => {});
+    } catch { /* sem chrome.storage (ex.: teste) */ }
+
+    applyLayout();
+    window.addEventListener('resize', clampIntoView);
+
+    // Arrastar e redimensionar com pointer events (mouse, caneta e toque).
+    function track(el, onMove) {
+      el.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        const r = bar.getBoundingClientRect();
+        const start = { x: e.clientX, y: e.clientY, left: r.left, bottom: window.innerHeight - r.bottom, width: r.width, height: r.height };
+        const move = (ev) => { onMove(ev.clientX - start.x, ev.clientY - start.y, start); applyLayout(); };
+        const up = () => {
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          el.removeEventListener('pointercancel', up);
+          clampIntoView();
+          saveLayout();
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+      });
+    }
+
+    track($('.drag-handle'), (dx, dy, s) => {
+      layout.left = s.left + dx;
+      layout.bottom = s.bottom - dy;
     });
 
-    // Drag and Drop Logic
-    const dragHandle = $('.drag-handle');
-    let isDragging = false;
-    let startX, startY, initialLeft, initialBottom;
+    for (const el of shadow.querySelectorAll('[data-rz]')) {
+      const dir = el.dataset.rz;
+      track(el, (dx, dy, s) => {
+        if (dir.includes('e')) {
+          layout.width = Math.round(Math.min(Math.max(MIN_W, s.width + dx), window.innerWidth - s.left - MARGIN));
+        }
+        if (dir.includes('n')) {
+          layout.height = Math.round(Math.min(Math.max(MIN_H, s.height - dy), window.innerHeight - s.bottom - MARGIN));
+        }
+      });
+    }
 
-    dragHandle.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      const rect = bar.getBoundingClientRect();
-      initialLeft = rect.left;
-      initialBottom = window.innerHeight - rect.bottom;
-      e.preventDefault();
+    $('.rz-corner').addEventListener('dblclick', () => {
+      layout.width = null;
+      layout.height = null;
+      clampIntoView();
+      saveLayout();
     });
 
-    window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      bar.style.left = `${initialLeft + dx}px`;
-      bar.style.bottom = `${initialBottom - dy}px`;
-    });
-
-    window.addEventListener('mouseup', () => {
-      isDragging = false;
-    });
+    // ─── Dica das etapas (fica fora da barra para não ser cortada pelo overflow) ─
+    function showTip(dot) {
+      const info = stageInfo.get(dot.dataset.key);
+      if (!info) return;
+      tip.querySelector('b').textContent = info.label;
+      tip.querySelector('.st').textContent = info.status;
+      tip.querySelector('.why').textContent = info.reason;
+      tip.querySelector('.crit').textContent = `Completo quando: ${info.criteria}`;
+      tip.classList.add('show');
+      const r = dot.getBoundingClientRect();
+      const t = tip.getBoundingClientRect();
+      const left = Math.min(Math.max(MARGIN, r.left + r.width / 2 - t.width / 2), window.innerWidth - t.width - MARGIN);
+      const top = r.top - t.height - 10 >= MARGIN ? r.top - t.height - 10 : r.bottom + 10;
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+    }
+    const hideTip = () => tip.classList.remove('show');
+    stagesEl.addEventListener('mouseover', (e) => { const d = e.target.closest('.dot'); if (d) showTip(d); });
+    stagesEl.addEventListener('mouseout', (e) => { if (!stagesEl.contains(e.relatedTarget)) hideTip(); });
+    stagesEl.addEventListener('focusin', (e) => { const d = e.target.closest('.dot'); if (d) showTip(d); });
+    stagesEl.addEventListener('focusout', hideTip);
 
     function setInsight(text, quiet) {
       insight.textContent = text;
@@ -151,10 +266,12 @@
     }
 
     return {
+      // O nome na barra é sempre "CallTrack"; a metodologia (ex.: SPICED) aparece só na dica.
       setPlaybook(name, stages) {
         playbookStages = stages;
-        $('.name').textContent = name;
+        $('.name').title = `Metodologia: ${name}`;
         stagesEl.innerHTML = '';
+        stageInfo.clear();
         for (const st of stages) {
           const d = document.createElement('div');
           d.className = 'dot';
@@ -162,10 +279,8 @@
           d.dataset.status = 'none';
           d.tabIndex = 0;
           d.setAttribute('role', 'listitem');
-          d.innerHTML = `<span>${st.key}</span><div class="tip"><b></b><div class="st"></div><div class="why"></div><div class="crit"></div></div>`;
-          d.querySelector('b').textContent = st.label;
-          d.querySelector('.crit').textContent = `Completo quando: ${st.complete_criteria}`;
-          d.setAttribute('aria-label', `${st.label}: ${STATUS_LABEL.none}`);
+          d.textContent = st.key;
+          stageInfo.set(st.key, { label: st.label, criteria: st.complete_criteria, status: STATUS_LABEL.none, reason: '' });
           stagesEl.appendChild(d);
         }
         this.setStages({});
@@ -176,8 +291,9 @@
           const s = stages[st.key] ?? { status: 'none' };
           d.dataset.status = s.status;
           const c = s.counts ? ` · ${s.counts.seller} vendedor · ${s.counts.lead} lead` : '';
-          d.querySelector('.st').textContent = `${STATUS_LABEL[s.status] ?? s.status}${c}`;
-          d.querySelector('.why').textContent = s.reason || '';
+          const info = stageInfo.get(st.key);
+          info.status = `${STATUS_LABEL[s.status] ?? s.status}${c}`;
+          info.reason = s.reason || '';
           d.setAttribute('aria-label', `${st.label}: ${STATUS_LABEL[s.status] ?? s.status}`);
         }
       },
@@ -197,9 +313,9 @@
         if (state === 'error') { setInsight(message, false); startBtn.textContent = 'Tentar de novo'; }
       },
       setMeta(text) { meta.textContent = text; },
-      destroy() { host.remove(); },
+      destroy() { window.removeEventListener('resize', clampIntoView); host.remove(); },
     };
   }
 
-  root.SpicedPanel = { createPanel };
+  root.CallTrackPanel = { createPanel };
 })(self);

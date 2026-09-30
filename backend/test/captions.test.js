@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const code = readFileSync(join(__dirname, '../../extension/src/captions.js'), 'utf8');
 const context = { self: {} };
 runInNewContext(code, context);
-const { CaptionTracker, roleFor } = context.self.SpicedCaptions;
+const { CaptionTracker, roleFor } = context.self.CallTrackCaptions;
 
 function setup() {
   let clock = 0;
