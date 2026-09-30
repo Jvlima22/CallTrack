@@ -46,6 +46,7 @@
   let ended = false;
   let lastCaptionAt = 0;
   let reconnectDelay = 1000;
+  const CALL_ENDED_CODE = 4000; // servidor fechou porque a call acabou
 
   const first = (el, list) => {
     for (const sel of list) {
@@ -154,14 +155,47 @@
       if (msg.type === 'case.request') panel.setSuggestion({ text: 'O lead pediu um exemplo parecido. Cite um case do mesmo segmento.' });
       if (msg.type === 'error') console.warn('[CallTrack]', msg.message);
     };
-    ws.onclose = () => {
+    ws.onclose = async (ev) => {
       if (ended) return;
+      if (ev.code === CALL_ENDED_CODE) return stopLocal('Call encerrada pelo servidor. O relatório fica pronto em alguns minutos.');
+      // Antes de reconectar, confere o motivo: token inválido ou call encerrada não adiantam insistir.
+      const why = await callState();
+      if (ended) return;
+      if (why === 'unauthorized') return stopLocal(null, 'Token inválido. Atualize o token no ícone da extensão.');
+      if (why === 'ended') return stopLocal('Esta call já foi encerrada. O relatório fica pronto em alguns minutos.');
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, 15000);
     };
   }
 
+  // 'live' | 'ended' | 'unauthorized' | 'offline' (servidor fora do ar: continua tentando)
+  async function callState() {
+    try {
+      const r = await fetch(`${base}/calls/${callId}`, { headers });
+      if (r.status === 401 || r.status === 403) return 'unauthorized';
+      if (r.status === 404) return 'ended';
+      const body = await r.json();
+      return body.call?.status === 'live' ? 'live' : 'ended';
+    } catch {
+      return 'offline';
+    }
+  }
+
+  // Para a captura sem chamar /end (a call já foi encerrada no servidor ou o token não vale).
+  function stopLocal(endedMessage, errorMessage) {
+    ended = true;
+    observer?.disconnect();
+    timers.forEach(clearInterval);
+    try { ws?.close(); } catch { /* já fechado */ }
+    if (errorMessage) panel.setState('error', errorMessage);
+    else panel.setState('ended', endedMessage);
+  }
+
   async function start() {
+    // "Tentar de novo" depois de um erro começa uma captura limpa
+    timers.forEach(clearInterval);
+    observer?.disconnect();
+    ended = false; queue = []; timers = []; reconnectDelay = 1000; lastParticipantsJson = '';
     panel.setState('connecting');
     try {
       const r = await fetch(`${base}/calls`, {

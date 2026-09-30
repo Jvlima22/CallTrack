@@ -31,6 +31,8 @@ await app.register(websocket);
 // Interface do CallTrack (atendimentos + CRM das calls) — arquivo único na raiz do repositório.
 const CALLTRACK_HTML = fileURLToPath(new URL('../../calltrack.html', import.meta.url));
 const IDLE_END_MS = 10 * 60 * 1000;
+// Código de fechamento do WebSocket que diz à extensão: a call acabou, não reconecte.
+const CALL_ENDED_CODE = 4000;
 
 // ─── Auth helpers ────────────────────────────────────────────────────────────
 
@@ -77,7 +79,7 @@ async function endCall(callId) {
 
   const session = getSession(call, call.playbook_id);
   await Call.findByIdAndUpdate(callId, { ended_at: new Date(), status: 'processing' });
-  for (const ws of session.sockets) ws.close(1000, 'call encerrada');
+  for (const ws of session.sockets) ws.close(CALL_ENDED_CODE, 'call encerrada');
   enqueueAnalysis(callId, session.costUsd);
   dropSession(callId);
   return call;
@@ -190,8 +192,8 @@ app.patch('/calls/:id', { preHandler: [auth, loadOwnedCall] }, async (req, reply
 app.get('/ws/calls/:id', { websocket: true, preHandler: [auth, loadOwnedCall] }, async (socket, req) => {
   const call = await Call.findById(req.params.id).populate('playbook_id').lean();
   if (!call || call.status !== 'live') {
-    socket.send(JSON.stringify({ type: 'error', message: 'Esta call já foi encerrada.' }));
-    return socket.close();
+    socket.send(JSON.stringify({ type: 'call.ended', message: 'Esta call já foi encerrada.' }));
+    return socket.close(CALL_ENDED_CODE, 'call encerrada');
   }
   const session = await hydrateSession(getSession(call, call.playbook_id));
   session.sockets.add(socket);
