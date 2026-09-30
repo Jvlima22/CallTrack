@@ -41,6 +41,8 @@
   }
   .icon-btn:hover { background: rgba(255,255,255,0.1); }
   .icon-btn svg { width: 18px; height: 18px; fill: #9aa0a6; }
+  .brand { display: flex; align-items: center; gap: calc(8px * var(--s)); }
+  .logo { width: var(--logo, 22px); height: var(--logo, 22px); flex: none; display: block; }
   .name { font-weight: 600; color: #bdc1c6; white-space: nowrap; }
   .stages { display: flex; gap: calc(6px * var(--s)); }
   .dot {
@@ -97,7 +99,13 @@
         <div class="drag-handle" title="Mover painel">
           <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
         </div>
-        <span class="name">CallTrack</span>
+        <span class="brand">
+          <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="1" y="2" width="22" height="20" rx="5.5" fill="#fff"/>
+            <path d="M0 12H6.6L10.4 3.9Q10.9 2.9 11.4 3.9L15.1 18.3Q15.5 19.3 16 18.3L18.2 12H24" fill="none" stroke="#202124" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="name">CallTrack</span>
+        </span>
         <button class="icon-btn toggle-collapse" title="Minimizar/Expandir">
           <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
         </button>
@@ -154,12 +162,18 @@
 
     // Conteúdo acompanha o tamanho: acima de TALL_H a sugestão vai para a linha de baixo
     // e bolinhas/textos crescem proporcionalmente à altura (até 1,6x).
+    // O logo cresce com a altura e também com a largura, sem passar da altura disponível.
     function updateScale() {
       const h = collapsed ? 0 : (layout.height || 0);
+      const w = collapsed ? 0 : (layout.width || 0);
       const tall = h >= TALL_H;
       bar.classList.toggle('tall', tall);
       const s = tall ? Math.min(1.6, Math.max(1, 1 + (h - TALL_H) / 220)) : 1;
       bar.style.setProperty('--s', s.toFixed(3));
+      const byWidth = w ? Math.min(1.6, Math.max(1, 1 + (w - 960) / 900)) : 1;
+      let logo = 22 * Math.max(s, byWidth);
+      if (h && !tall) logo = Math.min(logo, h - 22);
+      bar.style.setProperty('--logo', `${Math.max(22, Math.round(logo))}px`);
     }
 
     function clampIntoView() {
@@ -269,7 +283,7 @@
       // O nome na barra é sempre "CallTrack"; a metodologia (ex.: SPICED) aparece só na dica.
       setPlaybook(name, stages) {
         playbookStages = stages;
-        $('.name').title = `Metodologia: ${name}`;
+        $('.brand').title = `CallTrack · metodologia ${name}`;
         stagesEl.innerHTML = '';
         stageInfo.clear();
         for (const st of stages) {
