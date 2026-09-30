@@ -72,13 +72,15 @@
   // ─── Participantes e título da reunião ─────────────────────────────────────
   // O Meet só mostra nome e foto dos outros participantes (sem e-mail/telefone).
   const clean = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
+  // O Meet repete o nome no mesmo elemento ("AnaAna"): fica só uma vez
+  const undouble = (t) => { const m = clean(t).match(/^(.+?)\s?\1$/); return m && m[1].trim().length >= 2 ? m[1].trim() : clean(t); };
 
   function readParticipants() {
     const byName = new Map();
     let selfName = null;
     for (const tile of all(document, S.participantTile)) {
       const nameEl = first(tile, S.participantName);
-      const name = clean(nameEl?.getAttribute?.('data-self-name') || nameEl?.textContent);
+      const name = undouble(nameEl?.getAttribute?.('data-self-name') || nameEl?.textContent);
       if (!name || name.length > 120) continue;
       const isSelf = !!first(tile, S.selfTile);
       if (isSelf) selfName = name;
@@ -153,6 +155,7 @@
       if (msg.type === 'suggestion.new') panel.setSuggestion(msg.suggestion);
       if (msg.type === 'turns.ack') queue = queue.filter((t) => t.seq > msg.upTo);
       if (msg.type === 'case.request') panel.setSuggestion({ text: 'O lead pediu um exemplo parecido. Cite um case do mesmo segmento.' });
+      if (msg.type === 'hello') { sendParticipants(true); sendCaptureStatus(); }
       if (msg.type === 'error') console.warn('[CallTrack]', msg.message);
     };
     ws.onclose = async (ev) => {
@@ -219,7 +222,9 @@
       connect();
       timers.push(setInterval(() => tracker.tick(), 500));
       timers.push(setInterval(send, 5000));
-      timers.push(setInterval(() => sendParticipants(), 5000));
+      // a cada 5 s manda se mudou; a cada 30 s manda de qualquer jeito (se perder uma, recupera)
+      let beat = 0;
+      timers.push(setInterval(() => { beat += 1; sendParticipants(beat % 6 === 0); }, 5000));
       timers.push(setInterval(sendCaptureStatus, 10000));
       // Saúde da captura: legendas não encontradas, ou nenhuma legenda nova por 60 s.
       timers.push(setInterval(() => {

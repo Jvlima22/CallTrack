@@ -254,7 +254,8 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .avs .muted{margin-left:12px}
 .av{--av:28px;width:var(--av);height:var(--av);border-radius:50%;display:inline-grid;place-items:center;flex:none;overflow:hidden;
   background:var(--neutral-soft);color:var(--neutral);font-size:calc(var(--av) * .38);font-weight:700}
-.av img{width:100%;height:100%;object-fit:cover}
+.av{position:relative}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--panel)}
 .av.lead{background:var(--info-soft);color:var(--info)} .av.seller{background:var(--accent-soft);color:var(--accent)}
 
 /* Detalhe da call (CRM) */
@@ -1361,8 +1362,8 @@ function liveBadge(health, extra = ''){
 const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 function avatarHTML(p, size = 28){
   const img = p.avatar_url && /^https:\/\//.test(p.avatar_url)
-    ? `<img src="${esc(p.avatar_url)}" alt="" referrerpolicy="no-referrer">` : '';
-  return `<span class="av ${esc(p.role || '')}" style="--av:${size}px" title="${esc(p.name)}">${img || esc(initials(p.name))}</span>`;
+    ? `<img src="${esc(p.avatar_url)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+  return `<span class="av ${esc(p.role || '')}" style="--av:${size}px" title="${esc(p.name)}">${esc(initials(p.name))}${img}</span>`;
 }
 
 function closeCrmCall(){
@@ -1497,6 +1498,7 @@ function renderCrmCallShell(){
 
   $('#cdClose').onclick = () => $('#dlgCrmCall').close();
   $('#cdOutcome').onchange = e => setOutcome(c._id, e.target.value);
+  $('#cdEdit').addEventListener('input', e => { if (e.target.name) e.target.dataset.touched = '1'; });
   $('#cdSave').onclick = async () => {
     const patch = readForm($('#cdEdit')); delete patch.checklist;
     try {
@@ -1525,6 +1527,19 @@ function renderCrmCallParts(){
     ? `<div class="score" id="cdTimer">${fmtDur((Date.now() - new Date(c.started_at)) / 1000)}</div><div class="muted small">Duração</div>`
     : a ? `<div class="score ${scoreClass(a.score)}">${fmtScore(a.score)}</div><div class="muted small">Nota SPICED</div>`
     : callDur(c) ? `<div class="score">${fmtDur(callDur(c))}</div><div class="muted small">Duração</div>` : '';
+
+  // Campos automáticos: atualiza o formulário se o usuário não estiver mexendo nele
+  const form = $('#cdEdit');
+  if (form && !form.contains(document.activeElement)){
+    const manual = new Set(c.manual_fields || []);
+    for (const k of ['lead_name', 'lead_company', 'lead_role', 'meeting_title']){
+      const input = form.elements[k];
+      if (!input || input.dataset.touched || manual.has(k) || input.value === (c[k] || '')) continue;
+      input.value = c[k] || '';
+      const lbl = input.previousElementSibling;
+      if (lbl && c[k] && !lbl.querySelector('.auto')) lbl.insertAdjacentHTML('beforeend', '<span class="auto" title="Preenchido automaticamente pela call">auto</span>');
+    }
+  }
 
   // Saúde
   $('#cdHealth').innerHTML = health ? `<div class="health ${HEALTH[health.level]?.cls || 'neutral'}"><i></i><b>${HEALTH[health.level]?.label || ''}</b><span>${esc(health.reason || '')}</span></div>` : '';

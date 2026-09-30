@@ -190,6 +190,12 @@ app.patch('/calls/:id', { preHandler: [auth, loadOwnedCall] }, async (req, reply
 
 // GET /ws/calls/:id — WebSocket da call
 app.get('/ws/calls/:id', { websocket: true, preHandler: [auth, loadOwnedCall] }, async (socket, req) => {
+  // O listener entra ANTES de qualquer await: a extensão manda falas, participantes e status
+  // assim que a conexão abre, e o que chegasse enquanto a call carrega do banco se perderia.
+  const early = [];
+  let handle = null;
+  socket.on('message', (raw) => (handle ? handle(raw) : early.push(raw)));
+
   const call = await Call.findById(req.params.id).populate('playbook_id').lean();
   if (!call || call.status !== 'live') {
     socket.send(JSON.stringify({ type: 'call.ended', message: 'Esta call já foi encerrada.' }));
@@ -198,8 +204,10 @@ app.get('/ws/calls/:id', { websocket: true, preHandler: [auth, loadOwnedCall] },
   const session = await hydrateSession(getSession(call, call.playbook_id));
   session.sockets.add(socket);
   socket.send(JSON.stringify({ type: 'stages.update', stages: session.stages, changes: [] }));
+  // pede à extensão o estado atual (participantes e legendas) agora que o servidor está pronto
+  socket.send(JSON.stringify({ type: 'hello' }));
 
-  socket.on('message', async (raw) => {
+  handle = async (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     touch(session);
@@ -223,7 +231,8 @@ app.get('/ws/calls/:id', { websocket: true, preHandler: [auth, loadOwnedCall] },
         socket.send(JSON.stringify({ type: 'error', message: 'Falas não salvas; a extensão vai reenviar.' }));
       }
     }
-  });
+  };
+  for (const raw of early.splice(0)) await handle(raw);
   socket.on('close', () => session.sockets.delete(socket));
 });
 

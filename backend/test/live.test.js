@@ -29,3 +29,15 @@ test('% de fala do vendedor', () => {
   assert.equal(sellerTalkPct([{ role: 'seller', text: 'um dois três' }, { role: 'lead', text: 'quatro' }]), 75);
   assert.equal(sellerTalkPct([]), 0);
 });
+
+import { cleanName, sameName } from '../src/liveLogic.js';
+
+test('nome do participante sem repetição do Meet', () => {
+  assert.equal(cleanName('TGL SolutionsTGL Solutions'), 'TGL Solutions');
+  assert.equal(cleanName('Josué Lima Josué Lima'), 'Josué Lima');
+  assert.equal(cleanName('  Ana   Costa (Você) '), 'Ana Costa');
+  assert.equal(cleanName('Anna'), 'Anna');          // "nn" não é repetição de nome
+  assert.equal(cleanName('Bob Bob'), 'Bob');
+  assert.ok(sameName('Josué Lima', 'josue  lima'));
+  assert.ok(!sameName('', ''));
+});

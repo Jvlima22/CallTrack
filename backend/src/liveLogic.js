@@ -120,3 +120,21 @@ export function sellerTalkPct(turns) {
   }
   return total ? (seller / total) * 100 : 0;
 }
+
+// ─── Nomes de participantes ──────────────────────────────────────────────────
+// O Meet repete o nome no mesmo elemento (texto visível + texto para leitor de tela):
+// "TGL SolutionsTGL Solutions" -> "TGL Solutions". Também tira "(Você)"/"(You)".
+export function cleanName(raw) {
+  let s = String(raw ?? '').replace(/\s+/g, ' ').trim().replace(/\s*\((você|you)\)$/i, '').trim();
+  for (let i = 0; i < 2; i += 1) {
+    const m = s.match(/^(.+?)\s?\1$/);
+    if (m && m[1].trim().length >= 2) s = m[1].trim();
+  }
+  return s.slice(0, 120);
+}
+
+// Compara nomes ignorando acento, caixa e espaços.
+export const sameName = (a, b) => {
+  const n = (x) => String(x ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return !!a && !!b && n(a) === n(b);
+};

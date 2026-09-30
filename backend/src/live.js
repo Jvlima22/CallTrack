@@ -4,7 +4,7 @@ import { LIVE_SYSTEM, liveUser, SUMMARY_SYSTEM } from './prompts.js';
 import { emptyStages } from './playbook.js';
 import {
   mergeStages, shouldEvaluate, laggingStage, allComplete, evidenceCounts,
-  emptyKnowledge, mergeKnowledge, computeHealth, sellerTalkPct,
+  emptyKnowledge, mergeKnowledge, computeHealth, sellerTalkPct, cleanName, sameName,
 } from './liveLogic.js';
 import { autofillCall } from './autofill.js';
 
@@ -43,11 +43,13 @@ export function getSession(call, playbook) {
       lastProgressAt: startedAt,
       riskEvents: [],
       capture: { captionsFound: true, at: Date.now() },
-      // participantes: nome -> dados
+      // participantes: nome -> dados (nomes antigos salvos repetidos são limpos aqui)
+      sellerId: call.seller_id,
+      sellerName: null,
       selfName: null,
-      participants: new Map((call.participants ?? []).map((p) => [p.name, { ...p }])),
+      participants: new Map((call.participants ?? []).map((p) => [cleanName(p.name), { ...p, name: cleanName(p.name) }])),
       internalNames: null,
-      dirty: false,
+      dirty: (call.participants ?? []).some((p) => cleanName(p.name) !== p.name),
       lastPersistAt: 0,
       hydrated: false,
     };
@@ -110,6 +112,10 @@ async function internalNames(s) {
   if (!s.internalNames) {
     const users = await User.find({ org_id: s.orgId }, { name: 1 }).lean();
     s.internalNames = new Set(users.map((u) => u.name.trim().toLowerCase()));
+    // O vendedor é o dono do token: o nome dele identifica "você" na reunião,
+    // mesmo quando o Meet não marca o bloco do próprio usuário.
+    s.sellerName = users.find((u) => String(u._id) === String(s.sellerId))?.name ?? null;
+    if (!s.selfName && s.sellerName) s.selfName = s.sellerName;
   }
   return s.internalNames;
 }
@@ -119,7 +125,7 @@ function isSelfLabel(name) {
 }
 
 function participantFor(s, rawName, { isSelf = false } = {}) {
-  const name = isSelf || isSelfLabel(rawName) ? (s.selfName || String(rawName).trim()) : String(rawName ?? '').trim();
+  const name = isSelf || isSelfLabel(rawName) ? (s.selfName || cleanName(rawName)) : cleanName(rawName);
   if (!name) return null;
   let p = s.participants.get(name);
   if (!p) {
@@ -135,21 +141,36 @@ function participantFor(s, rawName, { isSelf = false } = {}) {
 
 async function assignRoles(s) {
   const internal = await internalNames(s);
+  // "Você" das legendas vira o vendedor assim que o nome dele é conhecido
+  const alias = [...s.participants.values()].find((x) => isSelfLabel(x.name));
+  if (alias && s.selfName) {
+    const real = s.participants.get(s.selfName);
+    s.participants.delete(alias.name);
+    if (real) {
+      real.talk_ms = (real.talk_ms ?? 0) + (alias.talk_ms ?? 0);
+      real.turn_count = (real.turn_count ?? 0) + (alias.turn_count ?? 0);
+    } else {
+      s.participants.set(s.selfName, { ...alias, name: s.selfName });
+    }
+    s.dirty = true;
+  }
   for (const p of s.participants.values()) {
-    const role = p.is_self || isSelfLabel(p.name) || p.name === s.selfName ? 'seller'
-      : internal.has(p.name.toLowerCase()) ? 'internal' : 'lead';
+    const self = p.is_self || isSelfLabel(p.name) || sameName(p.name, s.selfName) || sameName(p.name, s.sellerName);
+    const role = self ? 'seller' : internal.has(p.name.toLowerCase()) ? 'internal' : 'lead';
+    if (self && !p.is_self) { p.is_self = true; s.dirty = true; }
     if (p.role !== role) { p.role = role; s.dirty = true; }
   }
 }
 
 // Lista vinda da extensão: [{ name, avatar_url, is_self }], mais o título da reunião.
 export async function updateParticipants(s, { self_name, meeting_title, participants = [] }) {
-  if (self_name && typeof self_name === 'string') s.selfName = self_name.trim().slice(0, 120);
+  if (self_name && typeof self_name === 'string' && cleanName(self_name)) s.selfName = cleanName(self_name);
   const now = new Date();
   const present = new Set();
+  await internalNames(s); // garante o nome do vendedor antes de classificar
   for (const raw of participants.slice(0, 100)) {
     if (!raw || typeof raw.name !== 'string') continue;
-    const p = participantFor(s, raw.name.slice(0, 120), { isSelf: !!raw.is_self });
+    const p = participantFor(s, raw.name, { isSelf: !!raw.is_self });
     if (!p) continue;
     present.add(p.name);
     if (raw.is_self) p.is_self = true;
