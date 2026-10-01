@@ -42,6 +42,8 @@ export function getSession(call, playbook) {
       lastTurnAt: null,
       lastProgressAt: startedAt,
       riskEvents: [],
+      signals: [],          // todos os sinais (objeção, overpromise, pedido de case) para o card do CRM
+      lastSuggestion: null,
       capture: { captionsFound: true, at: Date.now() },
       // participantes: nome -> dados (nomes antigos salvos repetidos são limpos aqui)
       sellerId: call.seller_id,
@@ -306,12 +308,14 @@ async function maybeEvaluate(s) {
       if (['objection', 'case_request', 'overpromise'].includes(sig.type)) {
         events.push({ call_id: s.callId, at_ms: at, type: sig.type, payload: sig });
         if (sig.type !== 'case_request') s.riskEvents.push({ type: sig.type, at: Date.now(), note: sig.note });
+        s.signals.push({ type: sig.type, at: Date.now(), note: sig.note });
       }
     }
 
     let suggestion = null;
     if (data.suggestion?.text && !allComplete(stages)) {
       suggestion = { stage: data.suggestion.stage ?? laggingStage(stages), text: data.suggestion.text };
+      s.lastSuggestion = { ...suggestion, at: new Date() };
       events.push({ call_id: s.callId, at_ms: at, type: 'suggestion', payload: suggestion });
     }
 
@@ -374,4 +378,54 @@ export async function liveSnapshot(call) {
     ? { level: 'idle', reason: 'A extensão não está conectada a esta call.', at: new Date() }
     : st?.health ?? null;
   return { stages: st?.stages ?? emptyStages(), knowledge: st?.knowledge ?? emptyKnowledge(), summary: st?.rolling_summary ?? '', health, connected: false };
+}
+
+// ─── Resumo ao vivo para o card do quadro (CRM) ──────────────────────────────
+const SIGNAL_WINDOW_MS = 5 * 60 * 1000;
+const SPEAKING_MS = 15 * 1000;
+const clip = (t, n = 160) => { const x = String(t ?? '').replace(/\s+/g, ' ').trim(); return x.length > n ? `${x.slice(0, n - 1)}…` : x; };
+
+export function cardSummaryFromSession(s) {
+  const now = Date.now();
+  const last = s.turns.at(-1);
+  const recent = s.signals.filter((x) => now - x.at <= SIGNAL_WINDOW_MS);
+  const lastSignal = s.signals.at(-1);
+  return {
+    stages: Object.fromEntries(Object.entries(s.stages).map(([k, v]) => [k, v?.status ?? 'none'])),
+    seller_talk_pct: Math.round(sellerTalkPct(s.turns)),
+    turn_count: s.turns.length,
+    question_count: s.turns.filter((t) => t.role === 'seller' && t.text.includes('?')).length,
+    last_turn: last ? { speaker_name: last.speaker_name, role: last.role, text: clip(last.text) } : null,
+    current_speaker: last && s.lastTurnAt && now - s.lastTurnAt <= SPEAKING_MS ? (last.speaker_name || null) : null,
+    last_suggestion: s.lastSuggestion ? { stage: s.lastSuggestion.stage, text: clip(s.lastSuggestion.text, 140), at: s.lastSuggestion.at } : null,
+    signals: {
+      objection: recent.filter((x) => x.type === 'objection').length,
+      overpromise: recent.filter((x) => x.type === 'overpromise').length,
+      case_request: recent.filter((x) => x.type === 'case_request').length,
+      last: lastSignal ? { type: lastSignal.type, note: clip(lastSignal.note, 120), at: new Date(lastSignal.at) } : null,
+    },
+    connected: s.sockets.size > 0,
+  };
+}
+
+// Call ao vivo sem sessão neste servidor (extensão desconectada ou servidor reiniciado): lê do banco.
+export async function cardSummaryFromDb(call) {
+  const [state, last, count, questions, lastSug] = await Promise.all([
+    LiveState.findOne({ call_id: call._id }, { stages: 1 }).lean(),
+    Turn.findOne({ call_id: call._id }).sort({ seq: -1 }).lean(),
+    Turn.countDocuments({ call_id: call._id }),
+    Turn.countDocuments({ call_id: call._id, role: 'seller', text: /\?/ }),
+    LiveEvent.findOne({ call_id: call._id, type: 'suggestion' }).sort({ at_ms: -1 }).lean(),
+  ]);
+  return {
+    stages: Object.fromEntries(Object.entries(state?.stages ?? emptyStages()).map(([k, v]) => [k, v?.status ?? 'none'])),
+    seller_talk_pct: null,
+    turn_count: count,
+    question_count: questions,
+    last_turn: last ? { speaker_name: last.speaker_name, role: last.role, text: clip(last.text) } : null,
+    current_speaker: null,
+    last_suggestion: lastSug ? { stage: lastSug.payload?.stage, text: clip(lastSug.payload?.text, 140) } : null,
+    signals: { objection: 0, overpromise: 0, case_request: 0, last: null },
+    connected: false,
+  };
 }

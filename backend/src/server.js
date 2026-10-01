@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import {
   getSession, hydrateSession, findSession, appendTurns, dropSession,
   updateParticipants, updateCapture, touch, liveSnapshot, sessionHealth, flushSession,
+  cardSummaryFromSession, cardSummaryFromDb,
 } from './live.js';
 import { enqueueAnalysis } from './analyze.js';
 import { MEET_SELECTORS } from './selectors.js';
@@ -121,6 +122,11 @@ app.get('/api/crm/calls', { preHandler: auth }, async (req) => {
   const recordings = await recordingsByCall(callIds);
   const sellersById = new Map(sellers.map(s => [String(s._id), s]));
 
+  // resumo ao vivo para o card (só calls ao vivo; da memória quando a sessão está aqui)
+  const summaries = new Map(await Promise.all(calls.filter((c) => c.status === 'live').map(async (c) => {
+    const s = findSession(c._id);
+    return [String(c._id), s ? cardSummaryFromSession(s) : await cardSummaryFromDb(c)];
+  })));
   return calls.map((c) => {
     const s = c.status === 'live' ? findSession(c._id) : null;
     return {
@@ -130,6 +136,7 @@ app.get('/api/crm/calls', { preHandler: auth }, async (req) => {
       recording: recordings.get(String(c._id)) || null,
       live_health: c.status !== 'live' ? null
         : s ? sessionHealth(s) : { level: 'idle', reason: 'A extensão não está conectada a esta call.' },
+      live_summary: summaries.get(String(c._id)) ?? null,
     };
   });
 });

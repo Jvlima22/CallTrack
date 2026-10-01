@@ -220,7 +220,7 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .kcol h3 .n{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .kcol.over{border-color:var(--accent);background:var(--accent-soft)}
 .kcards{flex:1;overflow:auto;padding:10px;display:grid;align-content:start;gap:8px;min-height:80px}
-.kcard{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 12px;cursor:pointer;box-shadow:var(--shadow);text-align:left;width:100%}
+.kcard{display:grid;grid-template-columns:128px minmax(0,1fr);gap:12px;align-items:start;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 12px;cursor:pointer;box-shadow:var(--shadow);text-align:left;width:100%}
 .kcard:hover{border-color:var(--border-strong)}
 .kcard:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .kcard.dragging{opacity:.45}
@@ -247,9 +247,39 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 @keyframes liveblink{50%{background:color-mix(in srgb,var(--c) 30%,transparent)}}
 @keyframes livering{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @media (prefers-reduced-motion:reduce){.live-badge,.live-badge i{animation:none}}
-.kcard-live{margin-bottom:6px}
+.kcard.is-live{border-left:3px solid color-mix(in srgb,var(--accent) 45%,var(--border))}
+.kc-side{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-right:10px;border-right:1px solid var(--border);min-height:100%}
+.kc-side .live-badge{white-space:normal;line-height:1.2}
+.kc-timer{font:700 20px/1 ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;color:var(--text)}
+.kc-reason{font-size:11.5px;color:var(--muted);line-height:1.35;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.kc-score{font:700 26px/1 ui-monospace,Consolas,monospace}
+.kc-score.ok{color:var(--ok)} .kc-score.warn{color:var(--warn)} .kc-score.danger{color:var(--danger)}
+.kc-cap{font-size:11.5px;color:var(--muted)}
+.kc-main{min-width:0;display:grid;gap:5px}
+.kc-main .stages{margin-top:0}
+.kc-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:3px}
+.talk{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.talk-bar{width:64px;height:6px;border-radius:3px;background:var(--neutral-soft);overflow:hidden}
+.talk-bar i{display:block;height:100%;background:var(--ok)}
+.talk.warn .talk-bar i{background:var(--warn)} .talk.warn .talk-lbl{color:var(--warn);font-weight:600}
+.kc-counts{display:flex;gap:10px;font-size:11.5px;color:var(--muted)}
+.kc-counts .warn-txt{color:var(--warn);font-weight:600}
+.kc-quote{font-size:12.5px;line-height:1.4;padding:5px 8px;border-radius:6px;background:var(--panel-2);border-left:3px solid var(--border-strong);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kc-quote.lead{border-left-color:var(--info)} .kc-quote.seller{border-left-color:var(--accent)}
+.kc-quote b{font-weight:600}
+.kc-quote.empty{color:var(--muted);font-style:italic}
+.kc-sug{font-size:12.5px;line-height:1.4;padding:5px 8px;border-radius:6px;background:var(--info-soft);color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kc-sug span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--info);margin-right:6px}
+.kc-signals{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.badge.rec i{width:7px;height:7px;border-radius:50%;background:currentColor;animation:liveblink 1s steps(2) infinite}
+.av.left{opacity:.4;filter:grayscale(1)}
+.av.speaking{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ok)}
+.av.more{background:var(--panel-2);color:var(--muted);font-size:10px}
+.speaking-lbl{color:var(--ok);font-weight:600}
 .stat.live b{color:var(--danger)}
-.avs{display:flex;align-items:center;gap:0;margin-top:8px}
+.avs{display:flex;align-items:center;gap:0;margin-top:2px}
 .avs .av{margin-right:-6px;border:2px solid var(--panel)}
 .avs .muted{margin-left:12px}
 .av{--av:28px;width:var(--av);height:var(--av);border-radius:50%;display:inline-grid;place-items:center;flex:none;overflow:hidden;
@@ -333,6 +363,8 @@ dl.sum dd{margin:0}
 @media (max-width:860px){
   .crm{overflow:visible}
   .board{grid-template-columns:1fr;overflow:visible}
+  .kcard{grid-template-columns:1fr}
+  .kc-side{flex-direction:row;flex-wrap:wrap;align-items:center;border-right:0;border-bottom:1px solid var(--border);padding:0 0 8px}
   .cd-edit{grid-template-columns:1fr}
   .spiced{grid-template-columns:1fr}
   body{overflow:auto;display:block}
@@ -1287,35 +1319,79 @@ function crmFiltered(){
   });
 }
 
-function stagePills(a){
-  if (!a?.stages) return '';
+const SIGNAL_LABEL = {objection:'Objeção', overpromise:'Promessa arriscada', case_request:'Pediu case'};
+const agoLabel = d => { const m = Math.floor((Date.now() - new Date(d)) / 60000); return m < 1 ? 'agora' : `há ${m} min`; };
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
+
+// Etapas a partir de { S: 'partial', ... } (ao vivo) ou de analysis.stages (final)
+function stageRow(map){
   return `<div class="stages">${STAGES.map(([k, l]) => {
-    const st = a.stages[k]?.status || 'none';
+    const st = map?.[k] || 'none';
     return `<span class="stg ${st}" title="${esc(l)}: ${esc(STAGE_STATUS[st]?.[0] || st)}">${k}</span>`;
   }).join('')}</div>`;
 }
+function stagePills(a){
+  if (!a?.stages) return '';
+  return stageRow(Object.fromEntries(STAGES.map(([k]) => [k, a.stages[k]?.status || 'none'])));
+}
+
+// Barra vendedor × lead (amarela acima de 65%)
+function talkBar(pct){
+  if (typeof pct !== 'number') return '';
+  const warn = pct > 65;
+  return `<div class="talk${warn ? ' warn' : ''}" title="Vendedor falou ${pct}% das palavras; o ideal é até 65%">
+    <span class="talk-bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></span><span class="talk-lbl">Vendedor ${pct}%</span></div>`;
+}
+
+function peopleRow(c, speaking){
+  const all = (c.participants || []).slice().sort((x, y) => (x.left_at ? 1 : 0) - (y.left_at ? 1 : 0) || (y.talk_ms || 0) - (x.talk_ms || 0));
+  if (!all.length) return '';
+  const shown = all.slice(0, 5);
+  const cur = speaking ? shown.find(p => p.name === speaking) : null;
+  return `<div class="avs">${shown.map(p => avatarHTML({...p, _cls: `${p.left_at ? 'left' : ''}${p.name === speaking ? ' speaking' : ''}`}, 24)).join('')}
+    ${all.length > 5 ? `<span class="av more" style="--av:24px">+${all.length - 5}</span>` : ''}
+    <span class="muted small">${cur ? `<b class="speaking-lbl">${esc(firstName(cur.name))} falando</b>` : `${all.length} participante${all.length > 1 ? 's' : ''}`}</span></div>`;
+}
 
 function kcardHTML(c){
-  const a = c.analysis;
-  const st = c.status === 'live' ? null : CALL_STATUS[c.status];
-  const people = (c.participants || []).filter(p => !p.is_self && p.role !== 'seller').slice(0, 4);
-  return `<article class="kcard" draggable="true" tabindex="0" data-cid="${esc(c._id)}">
-    ${c.status === 'live' ? `<div class="kcard-live">${liveBadge(c.live_health)}</div>` : ''}
-    <div class="kcard-top">
-      <span class="kcard-title">${esc(callTitle(c))}</span>
-      ${a ? `<span class="badge ${scoreClass(a.score)}" title="Nota SPICED (0–10)">${fmtScore(a.score)}</span>` : ''}
+  const a = c.analysis, live = c.status === 'live', ls = c.live_summary || {};
+  const st = live ? null : CALL_STATUS[c.status];
+  const who = [c.lead_company, c.lead_role].filter(Boolean).join(' · ') || callSub(c);
+  const rec = c.recording?.status === 'recording' ? '<span class="badge danger rec" title="Gravando vídeo"><i></i>REC</span>'
+    : c.recording?.status === 'ready' ? '<span class="badge info" title="Call gravada">Vídeo</span>' : '';
+
+  // Coluna da esquerda: status (ao vivo: badge + cronômetro + motivo; encerrada: nota ou status)
+  const side = live
+    ? `${liveBadge(c.live_health)}
+       <div class="kc-timer" data-since="${esc(c.started_at)}">${fmtDur((Date.now() - new Date(c.started_at)) / 1000)}</div>
+       ${c.live_health?.reason ? `<div class="kc-reason">${esc(c.live_health.reason)}</div>` : ''}`
+    : a ? `<div class="kc-score ${scoreClass(a.score)}" title="Nota SPICED (0–10)">${fmtScore(a.score)}</div><div class="kc-cap">Nota SPICED</div>
+           ${callDur(c) ? `<div class="kc-cap">${fmtDur(callDur(c))}</div>` : ''}`
+    : `${st ? `<span class="badge ${st[1]}">${st[0]}</span>` : ''}${callDur(c) ? `<div class="kc-cap">${fmtDur(callDur(c))}</div>` : ''}`;
+
+  // Sinais dos últimos 5 minutos
+  const sig = ls.signals || {};
+  const sigBadges = live ? ['objection', 'overpromise', 'case_request'].filter(k => sig[k])
+    .map(k => `<span class="badge ${k === 'case_request' ? 'info' : 'danger'}">${SIGNAL_LABEL[k]}${sig[k] > 1 ? ' ×' + sig[k] : ''}</span>`).join('') : '';
+
+  const liveBody = live ? `
+    <div class="kc-row">${stageRow(ls.stages)}${talkBar(ls.seller_talk_pct)}</div>
+    <div class="kc-counts"><span>${ls.turn_count ?? 0} falas</span><span>${ls.question_count ?? 0} perguntas</span>${ls.connected === false ? '<span class="warn-txt">extensão desconectada</span>' : ''}</div>
+    ${ls.last_turn ? `<div class="kc-quote ${esc(ls.last_turn.role)}" title="Última fala capturada"><b>${esc(firstName(ls.last_turn.speaker_name) || ROLE_LABEL[ls.last_turn.role] || '')}:</b> ${esc(ls.last_turn.text)}</div>`
+      : '<div class="kc-quote empty">Nenhuma fala capturada ainda.</div>'}
+    ${ls.last_suggestion?.text ? `<div class="kc-sug" title="Última sugestão da IA"><span>Sugestão${ls.last_suggestion.stage ? ' · ' + esc(ls.last_suggestion.stage) : ''}</span>${esc(ls.last_suggestion.text)}</div>` : ''}
+    ${sigBadges ? `<div class="kc-signals">${sigBadges}${sig.last ? `<span class="muted small" title="${esc(sig.last.note || '')}">${agoLabel(sig.last.at)}</span>` : ''}</div>` : ''}`
+    : `${a ? `<div class="kc-row">${stagePills(a)}${talkBar(Math.round(a.seller_talk_pct || 0))}</div>` : ''}`;
+
+  return `<article class="kcard${live ? ' is-live' : ''}" draggable="true" tabindex="0" data-cid="${esc(c._id)}">
+    <div class="kc-side">${side}</div>
+    <div class="kc-main">
+      <div class="kcard-top"><span class="kcard-title">${esc(callTitle(c))}</span>${rec}${a?.is_critical ? '<span class="badge danger">Risco</span>' : ''}</div>
+      <div class="item-sub">${esc(who)}</div>
+      ${liveBody}
+      <div class="kcard-meta"><span>${fmtData(c.started_at)} ${fmtHora(c.started_at)}</span><span>· ${esc(c.seller_name || 'Vendedor')}</span>${c.meeting_code ? `<span>· ${esc(c.meeting_code)}</span>` : ''}</div>
+      ${peopleRow(c, live ? ls.current_speaker : null)}
     </div>
-    <div class="item-sub">${esc(callSub(c))}</div>
-    <div class="kcard-meta">
-      <span>${fmtData(c.started_at)} ${fmtHora(c.started_at)}</span>
-      <span>· ${esc(c.seller_name || 'Vendedor')}</span>
-      ${callDur(c) ? `<span>· ${fmtDur(callDur(c))}</span>` : ''}
-      ${st ? `<span class="badge ${st[1]}">${st[0]}</span>` : ''}
-      ${a?.is_critical ? '<span class="badge danger">Risco</span>' : ''}
-      ${c.recording?.status === 'ready' ? '<span class="badge info" title="Call gravada">Vídeo</span>' : c.recording?.status === 'recording' ? '<span class="badge danger" title="Gravando">REC</span>' : ''}
-    </div>
-    ${people.length ? `<div class="avs">${people.map(p => avatarHTML(p, 22)).join('')}<span class="muted small">${people.length === 1 ? esc(people[0].name) : people.length + ' participantes'}</span></div>` : ''}
-    ${stagePills(a)}
   </article>`;
 }
 
@@ -1386,7 +1462,8 @@ const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).
 function avatarHTML(p, size = 28){
   const img = p.avatar_url && /^https:\/\//.test(p.avatar_url)
     ? `<img src="${esc(p.avatar_url)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
-  return `<span class="av ${esc(p.role || '')}" style="--av:${size}px" title="${esc(p.name)}">${esc(initials(p.name))}${img}</span>`;
+  const tip = `${p.name}${p.left_at ? ' (saiu)' : ''}`;
+  return `<span class="av ${esc(p.role || '')} ${esc(p._cls || '')}" style="--av:${size}px" title="${esc(tip)}">${esc(initials(p.name))}${img}</span>`;
 }
 
 function closeCrmCall(){
@@ -1878,6 +1955,10 @@ function bindCrm(){
   };
   $('#crmLogout').onclick = () => { crm.token = ''; crmSaveCreds(); crmShowLogin(); };
   $('#crmRefresh').onclick = loadCrm;
+  setInterval(() => {
+    if (settings.mode !== 'crm' || document.hidden) return;
+    document.querySelectorAll('.kc-timer[data-since]').forEach(el => { el.textContent = fmtDur((Date.now() - new Date(el.dataset.since)) / 1000); });
+  }, 1000);
   $('#dlgCrmCall').addEventListener('close', () => { closeCrmCall(); renderCrm(); });
   $('#crmCallBody').addEventListener('click', e => {
     const at = e.target.closest('[data-seek-ms]');
