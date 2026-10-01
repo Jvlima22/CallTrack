@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CallTrack Copilot",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Acompanha suas reuniões e metodologias durante calls no Google Meet.",
   "permissions": ["storage"],
   "host_permissions": ["http://localhost:8787/*", "https://*/*"],
@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["https://meet.google.com/*"],
-      "js": ["src/captions.js", "src/panel.js", "src/content.js"],
+      "js": ["src/captions.js", "src/recorder.js", "src/panel.js", "src/content.js"],
       "run_at": "document_idle"
     }
   ]

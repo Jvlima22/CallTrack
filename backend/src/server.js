@@ -9,10 +9,11 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import {
   getSession, hydrateSession, findSession, appendTurns, dropSession,
-  updateParticipants, updateCapture, touch, liveSnapshot, sessionHealth,
+  updateParticipants, updateCapture, touch, liveSnapshot, sessionHealth, flushSession,
 } from './live.js';
 import { enqueueAnalysis } from './analyze.js';
 import { MEET_SELECTORS } from './selectors.js';
+import recordingRoutes, { finalizeRecording, recordingsByCall } from './recordingRoutes.js';
 
 await connectDb();
 
@@ -26,6 +27,12 @@ const app = Fastify({
   },
 });
 await app.register(cors, { origin: true });
+// JSON vazio vira {} (antes, um POST sem corpo com Content-Type JSON era recusado com 400,
+// e o "Encerrar call" da extensão falhava sem aviso)
+app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+  if (!body || !body.trim()) return done(null, {});
+  try { done(null, JSON.parse(body)); } catch (err) { err.statusCode = 400; done(err); }
+});
 await app.register(websocket);
 
 // Interface do CallTrack (atendimentos + CRM das calls) — arquivo único na raiz do repositório.
@@ -78,9 +85,11 @@ async function endCall(callId) {
   if (!call || call.status !== 'live') return call;
 
   const session = getSession(call, call.playbook_id);
+  await flushSession(session); // participantes (tempo de fala, nº de falas) ainda não gravados
   await Call.findByIdAndUpdate(callId, { ended_at: new Date(), status: 'processing' });
   for (const ws of session.sockets) ws.close(CALL_ENDED_CODE, 'call encerrada');
   enqueueAnalysis(callId, session.costUsd);
+  void finalizeRecording(callId).catch((e) => app.log.error(e)); // vídeo pendente (aba fechada sem /finish)
   dropSession(callId);
   return call;
 }
@@ -88,6 +97,8 @@ async function endCall(callId) {
 // ─── Rotas ───────────────────────────────────────────────────────────────────
 
 app.get('/health', async () => ({ ok: true }));
+
+await app.register(recordingRoutes, { auth, loadOwnedCall });
 
 app.get('/', async (req, reply) => reply.type('text/html; charset=utf-8').send(await readFile(CALLTRACK_HTML)));
 app.get('/dashboard', async (req, reply) => reply.redirect('/'));
@@ -107,6 +118,7 @@ app.get('/api/crm/calls', { preHandler: auth }, async (req) => {
   const analysesByCall = new Map(analyses.map(a => [String(a.call_id), a]));
   
   const sellers = await User.find({ org_id: req.user.org_id }).lean();
+  const recordings = await recordingsByCall(callIds);
   const sellersById = new Map(sellers.map(s => [String(s._id), s]));
 
   return calls.map((c) => {
@@ -115,6 +127,7 @@ app.get('/api/crm/calls', { preHandler: auth }, async (req) => {
       ...c,
       seller_name: sellersById.get(String(c.seller_id))?.name || 'Vendedor',
       analysis: analysesByCall.get(String(c._id)) || null,
+      recording: recordings.get(String(c._id)) || null,
       live_health: c.status !== 'live' ? null
         : s ? sessionHealth(s) : { level: 'idle', reason: 'A extensão não está conectada a esta call.' },
     };

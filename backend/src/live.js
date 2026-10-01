@@ -209,6 +209,11 @@ async function persist(s, force = false) {
   await Call.updateOne({ _id: s.callId }, { $set: set });
 }
 
+// Grava já o que estiver pendente (ao encerrar a call).
+export async function flushSession(s) {
+  await persist(s, true).catch((e) => console.error('[live] flush', e.message));
+}
+
 // Registra atividade (qualquer mensagem da extensão) para o encerramento automático.
 export function touch(s) {
   void persist(s).catch((e) => console.error('[live] persist', e.message));

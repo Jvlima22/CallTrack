@@ -15,6 +15,7 @@
     participantAvatar: ['img[src*="googleusercontent.com"]'],
     selfTile: ['[data-self-name]'],
     meetingTitle: ['[data-meeting-title]'],
+    micButton: ['button[data-is-muted][aria-label*="microfone" i]', 'button[data-is-muted][aria-label*="microphone" i]'],
   };
 
   const cfg = await chrome.storage.sync.get(['backendUrl', 'token']);
@@ -47,6 +48,7 @@
   let lastCaptionAt = 0;
   let reconnectDelay = 1000;
   const CALL_ENDED_CODE = 4000; // servidor fechou porque a call acabou
+  let recording = null; // { recorder, close, streams, micTimer }
 
   const first = (el, list) => {
     for (const sel of list) {
@@ -171,6 +173,90 @@
     };
   }
 
+  // ─── Gravação de vídeo ─────────────────────────────────────────────────────
+  // O pedido de compartilhamento da aba precisa sair no próprio clique (regra do Chrome),
+  // por isso start() chama requestDisplay() antes de qualquer outra coisa.
+  function requestDisplay() {
+    return navigator.mediaDevices.getDisplayMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 15, max: 24 } },
+      audio: { suppressLocalAudioPlayback: false },
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include',
+      surfaceSwitching: 'exclude',
+      systemAudio: 'include',
+    });
+  }
+
+  // Microfone acompanha o botão de mudo do Meet: com o Meet no mudo, nada do seu microfone é gravado.
+  function meetMuted() {
+    const btn = first(document, S.micButton || []);
+    return btn ? btn.getAttribute('data-is-muted') === 'true' : false;
+  }
+
+  async function startRecording(displayPromise, consentText, captureStartedAt) {
+    let display;
+    try {
+      display = await displayPromise;
+    } catch {
+      panel.setSuggestion({ text: 'Gravação cancelada. A análise continua, sem vídeo.' });
+      return;
+    }
+    let mic = null;
+    try { mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch { /* sem microfone: grava só a aba */ }
+    const { stream, close } = CallTrackRecorder.mixStreams({ display, mic, kind: 'video' });
+    const micTrack = mic?.getAudioTracks()[0];
+    const micTimer = micTrack ? setInterval(() => { micTrack.enabled = !meetMuted(); }, 500) : null;
+
+    let startInfo;
+    try {
+      const r = await fetch(`${base}/calls/${callId}/recording/start`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ kind: 'video', mime: CallTrackRecorder.pickMime('video'), offset_ms: Date.now() - captureStartedAt, consent: { confirmed: true, text: consentText } }),
+      });
+      startInfo = await r.json();
+      if (!r.ok) throw new Error(startInfo.error || `Erro ${r.status}`);
+    } catch (err) {
+      [display, mic].forEach((s) => s?.getTracks().forEach((t) => t.stop()));
+      clearInterval(micTimer); close();
+      panel.setSuggestion({ text: `Não foi possível iniciar a gravação: ${err.message}` });
+      return;
+    }
+
+    const recorder = CallTrackRecorder.createRecorder({
+      stream, kind: 'video', startSeq: startInfo.next_seq ?? 0,
+      upload: async (seq, blob) => {
+        const r = await fetch(`${base}/calls/${callId}/recording/chunks/${seq}`, {
+          method: 'PUT', headers: { Authorization: headers.Authorization, 'Content-Type': 'application/octet-stream' }, body: blob,
+        });
+        if (r.status === 409) return; // gravação já encerrada no servidor: descarta
+        if (!r.ok) throw new Error(`Erro ${r.status}`);
+      },
+      onState: (st) => {
+        if (st.error) panel.setRecording(true, { warn: true, title: `Falha ao enviar o vídeo; tentando de novo (${st.pending} pedaços na fila)` });
+        else if (st.uploaded !== undefined || st.recording) panel.setRecording(true);
+        if (st.dropped) panel.setRecording(true, { warn: true, title: 'Servidor fora do ar há muito tempo: parte do vídeo foi descartada' });
+      },
+    });
+    recording = { recorder, close, streams: [display, mic], micTimer };
+    // "Parar de compartilhar" na barra do Chrome encerra só a gravação; a análise continua
+    display.getVideoTracks()[0]?.addEventListener('ended', () => {
+      if (!ended) void stopRecording().then(() => panel.setSuggestion({ text: 'Gravação encerrada. A análise continua.' }));
+    });
+    recorder.start();
+  }
+
+  async function stopRecording() {
+    const rec = recording;
+    if (!rec) return;
+    recording = null;
+    const { durationMs } = await rec.recorder.stop();
+    rec.streams.forEach((s) => s?.getTracks().forEach((t) => t.stop()));
+    clearInterval(rec.micTimer);
+    rec.close();
+    panel.setRecording(false);
+    await fetch(`${base}/calls/${callId}/recording/finish`, { method: 'POST', headers, body: JSON.stringify({ duration_ms: durationMs }) }).catch(() => {});
+  }
+
   // 'live' | 'ended' | 'unauthorized' | 'offline' (servidor fora do ar: continua tentando)
   async function callState() {
     try {
@@ -187,6 +273,7 @@
   // Para a captura sem chamar /end (a call já foi encerrada no servidor ou o token não vale).
   function stopLocal(endedMessage, errorMessage) {
     ended = true;
+    void stopRecording();
     observer?.disconnect();
     timers.forEach(clearInterval);
     try { ws?.close(); } catch { /* já fechado */ }
@@ -194,7 +281,10 @@
     else panel.setState('ended', endedMessage);
   }
 
-  async function start() {
+  async function start({ record = false, consentText = '' } = {}) {
+    // Primeiro de tudo: pedido de compartilhamento da aba (tem que sair no clique)
+    const displayPromise = record ? requestDisplay() : null;
+    displayPromise?.catch(() => {}); // tratado em startRecording
     // "Tentar de novo" depois de um erro começa uma captura limpa
     timers.forEach(clearInterval);
     observer?.disconnect();
@@ -220,6 +310,7 @@
       enableCaptions();
       watchCaptions();
       connect();
+      if (displayPromise) void startRecording(displayPromise, consentText, startedAt);
       timers.push(setInterval(() => tracker.tick(), 500));
       timers.push(setInterval(send, 5000));
       // a cada 5 s manda se mudou; a cada 30 s manda de qualquer jeito (se perder uma, recupera)
@@ -247,9 +338,13 @@
     send();
     observer?.disconnect();
     timers.forEach(clearInterval);
+    if (reason !== 'unload') {
+      if (recording) panel.setState('connecting');
+      await stopRecording(); // envia o último pedaço do vídeo antes de encerrar
+    }
     // pequena espera para o último lote chegar antes de encerrar
     await new Promise((r) => setTimeout(r, reason === 'unload' ? 0 : 1500));
-    fetch(`${base}/calls/${callId}/end`, { method: 'POST', headers, keepalive: true }).catch(() => {});
+    fetch(`${base}/calls/${callId}/end`, { method: 'POST', headers, body: '{}', keepalive: true }).catch(() => {});
     ws?.close();
     panel.setState('ended');
   }

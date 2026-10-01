@@ -31,4 +31,6 @@ export const MEET_SELECTORS = {
   selfTile: ['[data-self-name]'],
   // título da reunião (quando vem do Google Agenda)
   meetingTitle: ['[data-meeting-title]'],
+  // botão de microfone do Meet (data-is-muted="true" = no mudo): a gravação respeita o mudo
+  micButton: ['button[data-is-muted][aria-label*="microfone" i]', 'button[data-is-muted][aria-label*="microphone" i]'],
 };

@@ -4,6 +4,8 @@
 (function (root) {
   const STATUS_LABEL = { none: 'Não abordado', partial: 'Parcial', complete: 'Completo' };
   const STORE_KEY = 'ctPanelLayout';
+  const REC_PREF_KEY = 'ctRecordPref';
+  const CONSENT_TEXT = 'Aviso: esta call está sendo gravada. O registro será mantido como prova da negociação e para cumprimento de obrigações legais.';
   const MARGIN = 8;          // distância mínima da borda da janela
   const MIN_W = 360;
   const MIN_H = 52;
@@ -76,6 +78,17 @@
   button.end { color: #f28b82; border-color: #f28b82; }
   button:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
   .meta { color: #9aa0a6; font-size: calc(11px * var(--s)); white-space: nowrap; }
+  .rec-opt { display: flex; align-items: center; gap: 6px; color: #bdc1c6; font-size: calc(12px * var(--s)); white-space: nowrap; cursor: pointer; }
+  .rec-opt input { accent-color: #f28b82; margin: 0; }
+  .consent { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px;
+    border-radius: 8px; background: #3c2a2a; border: 1px solid #f28b82; }
+  .consent p { margin: 0; flex: 1 1 260px; color: #e8eaed; }
+  .consent p b { color: #f28b82; }
+  .rec-badge { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: calc(11px * var(--s));
+    color: #f28b82; white-space: nowrap; }
+  .rec-badge i { width: 8px; height: 8px; border-radius: 50%; background: #f28b82; animation: recblink 1s steps(2) infinite; }
+  .rec-badge.warn { color: #fdd663; } .rec-badge.warn i { background: #fdd663; }
+  @keyframes recblink { 50% { opacity: .2; } }
   .hidden { display: none !important; }
   .rz { position: absolute; z-index: 2; touch-action: none; }
   .rz-top { top: 0; left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
@@ -110,8 +123,16 @@
         </button>
         <div class="stages hidden" role="list"></div>
         <div class="insight quiet" aria-live="polite">Analisar esta call?</div>
+        <span class="rec-badge hidden" title="Gravando a aba do Meet e o seu microfone"><i></i><span>REC</span></span>
         <span class="meta hidden"></span>
+        <label class="rec-opt" title="Grava a aba do Meet e o seu microfone. O vídeo fica no CRM, junto da call."><input type="checkbox" class="rec-toggle"> Gravar vídeo</label>
         <button class="primary start">Analisar call</button>
+        <div class="consent hidden" role="dialog" aria-label="Aviso de gravação">
+          <p><b>Avise os participantes antes de gravar.</b> Cole no chat do Meet: <span class="consent-text"></span></p>
+          <button class="copy">Copiar aviso</button>
+          <button class="primary confirm">Avisei, começar</button>
+          <button class="cancel">Cancelar</button>
+        </div>
         <button class="end hidden">Encerrar call</button>
         <div class="rz rz-top" data-rz="n" title="Arraste para mudar a altura"></div>
         <div class="rz rz-right" data-rz="e" title="Arraste para mudar a largura"></div>
@@ -133,7 +154,35 @@
     let playbookStages = [];
     const stageInfo = new Map(); // key -> { label, criteria, status, reason }
 
-    startBtn.addEventListener('click', () => onStart());
+    const recToggle = $('.rec-toggle');
+    const consentBox = $('.consent');
+    const recBadge = $('.rec-badge');
+    $('.consent-text').textContent = `"${CONSENT_TEXT}"`;
+    try { chrome.storage?.local?.get(REC_PREF_KEY).then((v) => { recToggle.checked = !!v?.[REC_PREF_KEY]; }).catch(() => {}); } catch { /* sem storage */ }
+    recToggle.addEventListener('change', () => {
+      try { chrome.storage?.local?.set({ [REC_PREF_KEY]: recToggle.checked }); } catch { /* contexto invalidado */ }
+    });
+    // Com "Gravar vídeo" marcado, primeiro vem o aviso; o clique em "Avisei, começar" inicia a gravação.
+    startBtn.addEventListener('click', () => {
+      if (!recToggle.checked) return onStart({ record: false });
+      consentBox.classList.remove('hidden');
+      startBtn.classList.add('hidden');
+      $('.rec-opt').classList.add('hidden');
+      insight.classList.add('hidden');
+    });
+    const closeConsent = () => {
+      consentBox.classList.add('hidden');
+      insight.classList.remove('hidden');
+    };
+    $('.consent .copy').addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(CONSENT_TEXT); e.target.textContent = 'Copiado'; } catch { e.target.textContent = 'Copie o texto ao lado'; }
+    });
+    $('.consent .confirm').addEventListener('click', () => { closeConsent(); onStart({ record: true, consentText: CONSENT_TEXT }); });
+    $('.consent .cancel').addEventListener('click', () => {
+      closeConsent();
+      startBtn.classList.remove('hidden');
+      $('.rec-opt').classList.remove('hidden');
+    });
     endBtn.addEventListener('click', () => onEnd());
     $('.open-crm').addEventListener('click', () => { if (onCrm) onCrm(); });
 
@@ -316,6 +365,8 @@
         const live = state === 'live';
         stagesEl.classList.toggle('hidden', !(live || state === 'ended'));
         startBtn.classList.toggle('hidden', !(state === 'idle' || state === 'error'));
+        $('.rec-opt').classList.toggle('hidden', !(state === 'idle' || state === 'error'));
+        if (state !== 'live') recBadge.classList.add('hidden');
         endBtn.classList.toggle('hidden', !live);
         meta.classList.toggle('hidden', !live);
         if (state === 'idle') setInsight(message || 'Analisar esta call?', true);
@@ -325,6 +376,12 @@
         if (state === 'error') { setInsight(message, false); startBtn.textContent = 'Tentar de novo'; }
       },
       setMeta(text) { meta.textContent = text; },
+      // on: gravando; warn: gravando com problema de envio (texto no title)
+      setRecording(on, { warn = false, title = '' } = {}) {
+        recBadge.classList.toggle('hidden', !on);
+        recBadge.classList.toggle('warn', !!warn);
+        recBadge.title = title || 'Gravando a aba do Meet e o seu microfone';
+      },
       destroy() { window.removeEventListener('resize', clampIntoView); host.remove(); },
     };
   }

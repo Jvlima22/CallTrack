@@ -258,6 +258,26 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--panel)}
 .av.lead{background:var(--info-soft);color:var(--info)} .av.seller{background:var(--accent-soft);color:var(--accent)}
 
+/* Gravação */
+.rec-card video{width:100%;max-height:58vh;display:block;background:#000;border-radius:8px}
+.rec-live{display:flex;align-items:center;gap:8px;color:var(--danger);font-weight:600}
+.rec-live i{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:liveblink 1s steps(2) infinite}
+.vtl{position:relative;height:14px;margin-top:10px;border-radius:7px;background:var(--panel-2);border:1px solid var(--border);cursor:pointer}
+.vtl-played{position:absolute;inset:0 auto 0 0;border-radius:7px;background:var(--accent-soft)}
+.vtl-mark{position:absolute;top:-3px;width:6px;height:18px;margin-left:-3px;border-radius:3px;background:var(--neutral);cursor:pointer}
+.vtl-mark.ok{background:var(--ok)} .vtl-mark.info{background:var(--info)} .vtl-mark.warn{background:var(--danger)}
+.vtl-mark:hover{transform:scaleY(1.3)}
+.turn.now{background:var(--accent-soft)}
+#crmCallBody:has(#cdPlayer) [data-seek-ms]{cursor:pointer}
+#crmCallBody:has(#cdPlayer) .turn[data-seek-ms]:hover,#crmCallBody:has(#cdPlayer) .rows li[data-seek-ms]:hover{background:var(--panel-2)}
+.gov{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+.gov summary{cursor:pointer;font-weight:600;font-size:13px}
+.gov .rows{margin-top:8px}
+.gov .rows .t{min-width:110px;color:var(--muted);font-weight:400}
+.del-form{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:8px}
+.del-form input,.del-form textarea{border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:8px 10px;font-weight:400}
+.del-form .dlg-actions{grid-column:1 / -1}
+
 /* Detalhe da call (CRM) */
 .cd-kicker{display:flex;gap:6px;align-items:center;min-height:4px;margin-bottom:4px}
 .cd-right{text-align:right}
@@ -1229,6 +1249,7 @@ async function loadCrm(){
   $('#crmMeta').textContent = 'Atualizando…';
   try {
     crm.calls = await crmApi('/api/crm/calls');
+    if (!crm.me) crm.me = await crmApi('/api/me').catch(() => null);
     crm.loaded = true;
     $('#crmLogin').hidden = true; $('#crmApp').hidden = false;
     renderCrm();
@@ -1291,6 +1312,7 @@ function kcardHTML(c){
       ${callDur(c) ? `<span>· ${fmtDur(callDur(c))}</span>` : ''}
       ${st ? `<span class="badge ${st[1]}">${st[0]}</span>` : ''}
       ${a?.is_critical ? '<span class="badge danger">Risco</span>' : ''}
+      ${c.recording?.status === 'ready' ? '<span class="badge info" title="Call gravada">Vídeo</span>' : c.recording?.status === 'recording' ? '<span class="badge danger" title="Gravando">REC</span>' : ''}
     </div>
     ${people.length ? `<div class="avs">${people.map(p => avatarHTML(p, 22)).join('')}<span class="muted small">${people.length === 1 ? esc(people[0].name) : people.length + ' participantes'}</span></div>` : ''}
     ${stagePills(a)}
@@ -1353,7 +1375,8 @@ const HEALTH = {
   idle: {label:'Sem captura', cls:'neutral'},
 };
 const ROLE_LABEL = {seller:'Vendedor', lead:'Lead', internal:'Time'};
-const cd = {id:null, call:null, analysis:null, live:null, turns:[], turnsById:new Map(), events:[], poll:null, clock:null, lastSeq:-1, busy:false};
+const cd = {id:null, call:null, analysis:null, live:null, turns:[], turnsById:new Map(), events:[], poll:null, clock:null, lastSeq:-1, busy:false,
+  recording:null, recUrl:null, recAudit:[]};
 
 function liveBadge(health, extra = ''){
   const h = HEALTH[health?.level] || HEALTH.idle;
@@ -1367,6 +1390,7 @@ function avatarHTML(p, size = 28){
 }
 
 function closeCrmCall(){
+  $('#cdPlayer')?.pause();
   clearInterval(cd.poll); clearInterval(cd.clock);
   cd.poll = cd.clock = null; cd.id = null;
 }
@@ -1375,19 +1399,22 @@ async function openCrmCall(id){
   const base = crm.calls.find(x => x._id === id);
   if (!base) return;
   closeCrmCall();
-  Object.assign(cd, {id, call:{...base}, analysis:base.analysis, live:null, turns:[], turnsById:new Map(), events:[], lastSeq:-1});
+  Object.assign(cd, {id, call:{...base}, analysis:base.analysis, live:null, turns:[], turnsById:new Map(), events:[], lastSeq:-1,
+    recording:null, recUrl:null, recAudit:[]});
   $('#crmCallBody').innerHTML = `<div class="muted">Carregando call…</div>`;
   if (!$('#dlgCrmCall').open) $('#dlgCrmCall').showModal();
   try {
     const [full, live] = await Promise.all([
       crmApi(`/calls/${encodeURIComponent(id)}`),
       crmApi(`/calls/${encodeURIComponent(id)}/live`),
+      loadRecording(),
     ]);
     if (cd.id !== id) return;
     cd.analysis = full.analysis;
     applyLive(live, true);
     renderCrmCallShell();
     renderCrmCallParts();
+    renderRecording();
     scheduleCrmPoll();
   } catch (e) {
     if (e.auth) return $('#dlgCrmCall').close();
@@ -1423,7 +1450,7 @@ function scheduleCrmPoll(){
   if (status === 'live'){
     cd.clock = setInterval(() => { const el = $('#cdTimer'); if (el) el.textContent = fmtDur((Date.now() - new Date(cd.call.started_at)) / 1000); }, 1000);
     cd.poll = setInterval(pollCrmCall, 3000);
-  } else if (status === 'processing' || (status === 'done' && !cd.analysis)){
+  } else if (status === 'processing' || (status === 'done' && !cd.analysis) || ['recording', 'processing'].includes(cd.recording?.status)){
     cd.poll = setInterval(pollCrmCall, 5000);
   }
 }
@@ -1447,6 +1474,10 @@ async function pollCrmCall(){
       renderCrm();
     }
     renderCrmCallParts();
+    const recBefore = cd.recording?.status;
+    if (!cd.recording || ['recording', 'processing'].includes(cd.recording.status)) await loadRecording();
+    renderRecording();
+    if (recBefore !== cd.recording?.status){ scheduleCrmPoll(); renderCrm(); }
   } catch (e) {
     if (e.auth) $('#dlgCrmCall').close();
   } finally {
@@ -1457,6 +1488,7 @@ async function pollCrmCall(){
 // Estrutura fixa do detalhe (inclui o formulário, que não é redesenhado durante o polling).
 function renderCrmCallShell(){
   const c = cd.call, isLive = c.status === 'live';
+  const keepVideo = $('#cdVideo');
   const manual = new Set(c.manual_fields || []);
   const field = (name, label, value) => {
     const auto = value && !manual.has(name) && ['lead_name','lead_company','lead_role','meeting_title'].includes(name);
@@ -1475,6 +1507,7 @@ function renderCrmCallShell(){
     </div>
     <div id="cdHealth"></div>
     <div id="cdPeople"></div>
+    <div id="cdVideo"></div>
 
     <div class="card">
       <div class="card-title">Dados da call <span class="spacer"></span><span class="muted small">Campos marcados com <span class="auto">auto</span> vêm da própria call; editar trava o valor.</span></div>
@@ -1496,6 +1529,7 @@ function renderCrmCallShell(){
       <div class="card"><div class="card-title">${isLive ? 'Sugestões e sinais ao vivo' : 'Linha do tempo ao vivo'}</div><div id="cdEvents"></div>${isLive ? '<div class="card-title" style="margin:14px 0 8px">Resumo até agora</div><div id="cdSummary" class="muted"></div>' : ''}</div>
     </div>`;
 
+  if (keepVideo?.childElementCount) $('#cdVideo').replaceWith(keepVideo); // não reinicia o vídeo
   $('#cdClose').onclick = () => $('#dlgCrmCall').close();
   $('#cdOutcome').onchange = e => setOutcome(c._id, e.target.value);
   $('#cdEdit').addEventListener('input', e => { if (e.target.name) e.target.dataset.touched = '1'; });
@@ -1584,8 +1618,8 @@ function renderCrmCallParts(){
       <header><span class="stg ${esc(x.status)}">${k}</span><b>${l}</b><span class="badge ${cls}">${lbl}</span></header>
       ${x.reason ? `<p class="why">${esc(x.reason)}</p>` : ''}
       ${kn.context ? `<div class="ctx"><span>Contexto</span>${esc(kn.context)}</div>` : ''}
-      ${qs.length ? `<div class="qlist"><span>Perguntas feitas</span>${qs.map(t => `<q><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
-      ${ls.length ? `<div class="qlist lead"><span>O que o lead disse</span>${ls.map(t => `<q><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
+      ${qs.length ? `<div class="qlist"><span>Perguntas feitas</span>${qs.map(t => `<q data-seek-ms="${t.started_ms}"><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
+      ${ls.length ? `<div class="qlist lead"><span>O que o lead disse</span>${ls.map(t => `<q data-seek-ms="${t.started_ms}"><em>${msClock(t.started_ms)}</em>${esc(t.text)}</q>`).join('')}</div>` : ''}
       ${!x.reason && !kn.context && !qs.length && !ls.length ? `<p class="muted small">${isLive ? 'Ainda não abordada.' : 'Sem informações.'}</p>` : ''}
     </section>`;
   }).join('');
@@ -1621,14 +1655,15 @@ function renderCrmCallParts(){
   // Transcrição
   const box = $('#cdTurns');
   $('#cdTurnCount').textContent = `(${cd.turns.length} falas)`;
-  box.innerHTML = cd.turns.map(t => `<div class="turn ${esc(t.role)}"><span class="t">${msClock(t.started_ms)}</span><div><b>${esc(t.speaker_name || ROLE_LABEL[t.role] || '')}</b>${esc(t.text)}</div></div>`).join('')
+  lastHi = null;
+  box.innerHTML = cd.turns.map(t => `<div class="turn ${esc(t.role)}" data-seq="${t.seq}" data-seek-ms="${t.started_ms}"><span class="t">${msClock(t.started_ms)}</span><div><b>${esc(t.speaker_name || ROLE_LABEL[t.role] || '')}</b>${esc(t.text)}</div></div>`).join('')
     || `<div class="muted">${isLive ? 'Aguardando as primeiras falas… (as legendas do Meet precisam estar ativas)' : 'Nenhuma fala registrada.'}</div>`;
   if (isLive && ($('#cdFollow')?.checked ?? true)) box.scrollTop = box.scrollHeight;
 
   // Eventos
   const evs = isLive ? cd.events.slice().reverse() : cd.events;
   $('#cdEvents').innerHTML = evs.length
-    ? `<ul class="rows">${evs.map(ev => `<li><span class="t">${msClock(ev.at_ms)}</span><span class="badge ${ev.type === 'stage_change' ? 'ok' : ev.type === 'suggestion' ? 'info' : 'warn'}">${EVENT_LABEL[ev.type] || esc(ev.type)}</span><div class="grow">${esc(eventText(ev))}</div></li>`).join('')}</ul>`
+    ? `<ul class="rows">${evs.map(ev => `<li data-seek-ms="${ev.at_ms}"><span class="t">${msClock(ev.at_ms)}</span><span class="badge ${ev.type === 'stage_change' ? 'ok' : ev.type === 'suggestion' ? 'info' : 'warn'}">${EVENT_LABEL[ev.type] || esc(ev.type)}</span><div class="grow">${esc(eventText(ev))}</div></li>`).join('')}</ul>`
     : `<div class="muted">${isLive ? 'As sugestões e sinais aparecem aqui assim que a IA avaliar as primeiras falas.' : 'Nenhum evento ao vivo.'}</div>`;
   const sm = $('#cdSummary');
   if (sm) sm.textContent = live.summary || 'O resumo aparece depois de alguns minutos de conversa.';
@@ -1644,6 +1679,169 @@ function eventText(ev){
   }
   if (ev.type === 'suggestion') return `[${p.stage || '–'}] ${p.text || ''}`;
   return p.note || p.text || '';
+}
+
+/* ---------- Gravação da call (player sincronizado) ---------- */
+const RETENTION_LABEL = {prova_negociacao:'prova de negociação ou contrato', obrigacao_legal:'obrigação legal'};
+const AUDIT_LABEL = {created:'Gravação iniciada', finalized:'Vídeo pronto', failed:'Falha ao preparar o vídeo', viewed:'Vídeo aberto',
+  deletion_requested:'Pedido de exclusão registrado', deleted:'Vídeo excluído', deletion_refused:'Exclusão recusada (vídeo mantido)'};
+const fmtBytes = b => b >= 1e9 ? (b / 1e9).toFixed(2).replace('.', ',') + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(1).replace('.', ',') + ' MB' : Math.round((b || 0) / 1e3) + ' KB';
+const fmtDateTime = d => d ? `${fmtData(d)} ${fmtHora(d)}` : '';
+
+async function loadRecording(){
+  if (!cd.id) return;
+  const id = cd.id;
+  try {
+    const r = await crmApi(`/calls/${encodeURIComponent(id)}/recording`);
+    if (cd.id !== id) return;
+    cd.recording = r.recording; cd.recUrl = r.url; cd.recAudit = r.audit || [];
+  } catch (e) { if (e.auth) $('#dlgCrmCall').close(); }
+}
+
+// Tempo do vídeo (s) para um momento da call (ms desde o início da captura)
+const videoTime = ms => Math.max(0, ((ms || 0) - (cd.recording?.offset_ms || 0)) / 1000);
+
+function renderRecording(){
+  const box = $('#cdVideo');
+  if (!box) return;
+  const r = cd.recording;
+  const state = r ? `${r.status}:${cd.recUrl ? 'url' : ''}` : 'none';
+  if (box.dataset.state === state && r?.status !== 'recording'){ renderRecordingMeta(); return; }
+  box.dataset.state = state;
+  if (!r){ box.innerHTML = ''; return; }
+  const head = `<div class="card-title">Gravação da call <span class="spacer"></span><span class="muted small" id="cdRecMeta"></span></div>`;
+  if (r.status === 'recording'){
+    box.innerHTML = `<div class="card rec-card">${head}<div class="rec-live"><i></i>Gravando: ${r.chunks || 0} pedaços recebidos · ${fmtBytes(r.bytes)}. O vídeo fica disponível aqui quando a call terminar.</div></div>`;
+  } else if (r.status === 'processing'){
+    box.innerHTML = `<div class="card rec-card">${head}<div class="muted">Preparando o vídeo… esta tela atualiza sozinha.</div></div>`;
+  } else if (r.status === 'failed'){
+    box.innerHTML = `<div class="card rec-card">${head}<div class="crm-err">Não foi possível preparar o vídeo: ${esc(r.error || 'erro desconhecido')}</div></div>`;
+  } else if (r.status === 'deleted'){
+    box.innerHTML = `<div class="card rec-card">${head}<div class="muted">Vídeo excluído em ${fmtDateTime(r.deleted?.at)}. Motivo: ${esc(r.deleted?.reason || '')}</div></div>`;
+  } else {
+    box.innerHTML = `<div class="card rec-card">${head}
+      <video id="cdPlayer" preload="metadata" playsinline src="${esc(crm.base.replace(/\/+$/, '') + cd.recUrl)}"></video>
+      <div class="vtl" id="cdTimeline" title="Clique para ir a esse momento"><div class="vtl-played" id="cdPlayed"></div></div>
+      <div class="controls">
+        <button class="play" id="cdPlay" title="Tocar/pausar (Espaço)">${ICON.play(20)}</button>
+        <button class="btn icon ghost" id="cdBack" title="Voltar 10 s (J)">${ICON.back(16)}</button>
+        <button class="btn icon ghost" id="cdFwd" title="Avançar 10 s (L)">${ICON.fwd(16)}</button>
+        <span class="ptime" id="cdTime">00:00 / 00:00</span>
+        <span class="spacer"></span>
+        <div class="rate" id="cdRate">${[0.75, 1, 1.25, 1.5, 2].map(v => `<button data-rate="${v}"${v === 1 ? ' class="on"' : ''}>${String(v).replace('.', ',')}x</button>`).join('')}</div>
+        <button class="btn icon ghost" id="cdFull" title="Tela cheia">⛶</button>
+      </div>
+      <div class="hint">Clique numa fala da transcrição, numa pergunta ou citação das etapas, ou num evento para ir direto ao momento do vídeo.</div>
+    </div>`;
+    bindPlayer();
+  }
+  renderRecordingMeta();
+}
+
+function renderRecordingMeta(){
+  const r = cd.recording, meta = $('#cdRecMeta');
+  if (!r || !meta) return;
+  const bases = (r.retention?.bases || []).map(b => RETENTION_LABEL[b.key] || b.label || b.key).join(' e ');
+  meta.textContent = [r.duration_ms ? fmtDur(r.duration_ms / 1000) : '', r.size ? fmtBytes(r.size) : '',
+    r.retention?.policy === 'forever' ? `Guardado para sempre: ${bases}` : ''].filter(Boolean).join(' · ');
+  let gov = $('#cdRecGov');
+  if (!gov){ gov = document.createElement('div'); gov.id = 'cdRecGov'; $('#cdVideo .card')?.appendChild(gov); }
+  if (!gov.isConnected) return;
+  if (gov.dataset.n === String(cd.recAudit?.length) && gov.dataset.me === String(crm.me?.role)) return;
+  gov.dataset.n = String(cd.recAudit?.length); gov.dataset.me = String(crm.me?.role);
+  const isAdmin = crm.me?.role === 'admin' && r.status !== 'deleted';
+  gov.innerHTML = `<details class="gov">
+      <summary>Guarda e auditoria${r.consent?.confirmed ? ` · aviso de gravação confirmado em ${fmtDateTime(r.consent.at)}` : ''}</summary>
+      ${r.consent?.text ? `<p class="small muted">Aviso usado: "${esc(r.consent.text)}"</p>` : ''}
+      <ul class="rows">${(cd.recAudit || []).map(a => `<li><span class="t">${fmtDateTime(a.at)}</span><div class="grow">${esc(AUDIT_LABEL[a.action] || a.action)}${a.user_name ? ' · ' + esc(a.user_name) : ''}${a.reason ? `<div class="muted small">${esc(a.reason)}</div>` : ''}</div></li>`).join('')}</ul>
+    </details>
+    ${isAdmin ? `<details class="gov">
+      <summary>Pedido de exclusão (LGPD)</summary>
+      <p class="small muted">A gravação é guardada para sempre como prova da negociação e para cumprimento de obrigações legais. Use isto só quando uma pessoa gravada pedir a exclusão. A decisão e o motivo ficam registrados.</p>
+      <form class="del-form" id="cdDelForm" onsubmit="return false">
+        <label>Quem pediu<input name="requester" autocomplete="off" placeholder="Nome e contato de quem pediu"></label>
+        <label class="span2">Motivo da decisão<textarea name="reason" rows="2" placeholder="Ex.: pedido do titular sem negociação em andamento / mantido por disputa contratual em aberto"></textarea></label>
+        <div class="dlg-actions"><button class="btn" data-decision="refuse">Recusar e manter o vídeo</button><button class="btn danger" data-decision="delete">Excluir o vídeo</button></div>
+      </form>
+    </details>` : ''}`;
+  $('#cdDelForm')?.addEventListener('click', async e => {
+    const b = e.target.closest('[data-decision]'); if (!b) return;
+    const f = $('#cdDelForm'), reason = f.reason.value.trim(), requester = f.requester.value.trim();
+    if (reason.length < 10) return toast('Escreva o motivo da decisão (mínimo 10 caracteres).', 'warn');
+    if (b.dataset.decision === 'delete' && !confirm('Excluir o vídeo desta call? Não dá para desfazer.')) return;
+    try {
+      await crmApi(`/calls/${encodeURIComponent(cd.id)}/recording/deletion`, {method:'POST', body: JSON.stringify({decision: b.dataset.decision, reason, requester})});
+      await loadRecording(); renderRecording(); renderCrm();
+      toast(b.dataset.decision === 'delete' ? 'Vídeo excluído e decisão registrada' : 'Recusa registrada; vídeo mantido');
+    } catch (err) { if (!err.auth) toast(err.message, 'warn'); }
+  });
+}
+
+function bindPlayer(){
+  const v = $('#cdPlayer');
+  if (!v) return;
+  const dur = () => (v.duration && isFinite(v.duration)) ? v.duration : (cd.recording?.duration_ms || 0) / 1000;
+  const paint = () => {
+    const d = dur();
+    $('#cdTime').textContent = `${fmtDur(v.currentTime)} / ${fmtDur(d)}`;
+    $('#cdPlayed').style.width = d ? `${Math.min(100, v.currentTime / d * 100)}%` : '0';
+    $('#cdPlay').innerHTML = v.paused ? ICON.play(20) : ICON.pause(20);
+    highlightTurn(v.currentTime);
+  };
+  const drawMarkers = () => {
+    const d = dur(), tl = $('#cdTimeline');
+    if (!d || !tl) return;
+    tl.querySelectorAll('.vtl-mark').forEach(m => m.remove());
+    for (const ev of cd.events){
+      const t = videoTime(ev.at_ms);
+      if (t > d) continue;
+      const cls = ev.type === 'stage_change' ? 'ok' : ev.type === 'suggestion' ? 'info' : 'warn';
+      tl.insertAdjacentHTML('beforeend', `<span class="vtl-mark ${cls}" style="left:${t / d * 100}%" data-seek-ms="${ev.at_ms}" title="${esc(msClock(t * 1000) + ' · ' + (EVENT_LABEL[ev.type] || ev.type) + ': ' + eventText(ev))}"></span>`);
+    }
+  };
+  v.addEventListener('timeupdate', paint);
+  v.addEventListener('play', paint); v.addEventListener('pause', paint);
+  v.addEventListener('loadedmetadata', () => { if (!v.currentTime) v.currentTime = 0.01; paint(); drawMarkers(); }); // mostra o 1º quadro
+  v.addEventListener('durationchange', drawMarkers);
+  v.addEventListener('error', async () => {
+    // link assinado expirou (1 h): pede outro e continua de onde estava
+    const at = v.currentTime; await loadRecording();
+    if (cd.recUrl){ v.src = crm.base.replace(/\/+$/, '') + cd.recUrl; v.currentTime = at; }
+  }, {once: true});
+  $('#cdPlay').onclick = () => v.paused ? v.play() : v.pause();
+  $('#cdBack').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 10); };
+  $('#cdFwd').onclick = () => { v.currentTime = Math.min(dur(), v.currentTime + 10); };
+  $('#cdFull').onclick = () => v.requestFullscreen?.();
+  $('#cdRate').onclick = e => { const b = e.target.closest('[data-rate]'); if (!b) return; v.playbackRate = +b.dataset.rate;
+    $('#cdRate').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  $('#cdTimeline').addEventListener('click', e => {
+    if (e.target.closest('[data-seek-ms]')) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    v.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur();
+  });
+  paint();
+}
+
+function seekCall(ms){
+  const v = $('#cdPlayer');
+  if (!v) return;
+  v.currentTime = videoTime(ms);
+  v.play().catch(() => {});
+  $('#cdVideo').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+let lastHi = null;
+function highlightTurn(sec){
+  const box = $('#cdTurns');
+  if (!box || !cd.turns.length) return;
+  let cur = null;
+  for (const t of cd.turns){ if (videoTime(t.started_ms) <= sec + 0.05) cur = t; else break; }
+  const key = cur ? String(cur.seq) : null;
+  if (key === lastHi) return;
+  lastHi = key;
+  box.querySelectorAll('.turn.now').forEach(el => el.classList.remove('now'));
+  const el = key && box.querySelector(`.turn[data-seq="${key}"]`);
+  if (el){ el.classList.add('now'); const top = el.offsetTop - box.offsetTop; if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 40) box.scrollTop = top - 40; }
 }
 
 /* ---------- Troca de módulo ---------- */
@@ -1674,12 +1872,17 @@ function bindCrm(){
     if (!token){ $('#crmErr').textContent = 'Informe o token.'; return; }
     crm.base = f.base.value.trim() || crmDefaultBase();
     crm.token = token; crmSaveCreds();
+    crm.me = null;
     $('#crmErr').textContent = 'Conectando…';
     loadCrm();
   };
   $('#crmLogout').onclick = () => { crm.token = ''; crmSaveCreds(); crmShowLogin(); };
   $('#crmRefresh').onclick = loadCrm;
   $('#dlgCrmCall').addEventListener('close', () => { closeCrmCall(); renderCrm(); });
+  $('#crmCallBody').addEventListener('click', e => {
+    const at = e.target.closest('[data-seek-ms]');
+    if (at && $('#cdPlayer') && !e.target.closest('input,textarea,select,button')) seekCall(+at.dataset.seekMs);
+  });
   window.addEventListener('hashchange', () => { if (/token=/.test(location.hash)){ crmLoadCreds(); setMode('crm'); } });
   $('#crmQ').addEventListener('input', renderCrm);
   ['crmSeller', 'crmPeriodo'].forEach(id => $('#' + id).addEventListener('change', renderCrm));
@@ -1700,6 +1903,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F4' && live){ e.preventDefault(); setMode('atend'); setView('live'); live.pendingT = elapsed(); $('#markInput').focus(); return; }
   if (e.key === 'F9' && live){ e.preventDefault(); setMode('atend'); setView('live'); finishCall(); return; }
   if (typing || e.ctrlKey || e.altKey || e.metaKey) return;
+  if ($('#dlgCrmCall').open){
+    const v = $('#cdPlayer'), k = e.key.toLowerCase();
+    if (v && (k === ' ' || k === 'k')){ e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    else if (v && k === 'j') v.currentTime = Math.max(0, v.currentTime - 10);
+    else if (v && k === 'l') v.currentTime += 10;
+    return;
+  }
   if (e.key === '/'){ e.preventDefault(); $(settings.mode === 'crm' ? '#crmQ' : '#q').focus(); return; }
   if (settings.mode === 'atend' && view === 'detail' && player && !editing){
     const k = e.key.toLowerCase();
