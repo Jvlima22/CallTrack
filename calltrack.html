@@ -290,6 +290,14 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 
 /* Gravação */
 .rec-card video{width:100%;max-height:58vh;display:block;background:#000;border-radius:8px}
+.rec-card.collapsed video,.rec-card.collapsed .hint{display:none}
+.rec-card.collapsed .vtl{margin-top:0}
+.vid-toggle{height:28px;padding:0 8px;gap:6px;font-weight:500}
+.rec-card .card-title{flex-wrap:wrap;row-gap:4px}
+.rec-card .vid-toggle{flex:none;margin-left:auto}
+@media (max-width:560px){ #cdRecMeta{order:3;flex-basis:100%} .rec-card .card-title .spacer{display:none} }
+.vid-toggle svg{transition:transform .15s}
+.rec-card:not(.collapsed) .vid-toggle svg{transform:rotate(180deg)}
 .rec-live{display:flex;align-items:center;gap:8px;color:var(--danger);font-weight:600}
 .rec-live i{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:liveblink 1s steps(2) infinite}
 .vtl{position:relative;height:14px;margin-top:10px;border-radius:7px;background:var(--panel-2);border:1px solid var(--border);cursor:pointer}
@@ -526,6 +534,7 @@ const ICON = {
   flag: s => I('<path d="M4 22V4a1 1 0 0 1 1-1h12l-2 5 2 5H5"/>', s),
   history: s => I('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>', s),
   lock: s => I('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', s),
+  chevron: s => I('<path d="m6 9 6 6 6-6"/>', s),
   stop: s => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
 };
 
@@ -562,7 +571,7 @@ const statusBadge = s => `<span class="badge ${STATUS_CLASS[s] || 'neutral'}">${
 const settings = (() => {
   let s = {};
   try { s = JSON.parse(localStorage.getItem('cc-settings') || '{}'); } catch (e) {}
-  return Object.assign({atendente:'', audioMode:'mic', theme:null, mode:'crm'}, s);
+  return Object.assign({atendente:'', audioMode:'mic', theme:null, mode:'crm', videoOpen:false}, s);
 })();
 function saveSettings(){ try { localStorage.setItem('cc-settings', JSON.stringify(settings)); } catch (e) {} }
 
@@ -1786,7 +1795,9 @@ function renderRecording(){
   if (box.dataset.state === state && r?.status !== 'recording'){ renderRecordingMeta(); return; }
   box.dataset.state = state;
   if (!r){ box.innerHTML = ''; return; }
-  const head = `<div class="card-title">Gravação da call <span class="spacer"></span><span class="muted small" id="cdRecMeta"></span></div>`;
+  const ready = !['recording', 'processing', 'failed', 'deleted'].includes(r.status);
+  const toggle = ready ? `<button class="btn ghost small vid-toggle" id="cdVidToggle" aria-controls="cdPlayer"></button>` : '';
+  const head = `<div class="card-title">Gravação da call <span class="spacer"></span><span class="muted small" id="cdRecMeta"></span>${toggle}</div>`;
   if (r.status === 'recording'){
     box.innerHTML = `<div class="card rec-card">${head}<div class="rec-live"><i></i>Gravando: ${r.chunks || 0} pedaços recebidos · ${fmtBytes(r.bytes)}. O vídeo fica disponível aqui quando a call terminar.</div></div>`;
   } else if (r.status === 'processing'){
@@ -1796,7 +1807,7 @@ function renderRecording(){
   } else if (r.status === 'deleted'){
     box.innerHTML = `<div class="card rec-card">${head}<div class="muted">Vídeo excluído em ${fmtDateTime(r.deleted?.at)}. Motivo: ${esc(r.deleted?.reason || '')}</div></div>`;
   } else {
-    box.innerHTML = `<div class="card rec-card">${head}
+    box.innerHTML = `<div class="card rec-card${settings.videoOpen ? '' : ' collapsed'}">${head}
       <video id="cdPlayer" preload="metadata" playsinline src="${esc(crm.base.replace(/\/+$/, '') + cd.recUrl)}"></video>
       <div class="vtl" id="cdTimeline" title="Clique para ir a esse momento"><div class="vtl-played" id="cdPlayed"></div></div>
       <div class="controls">
@@ -1888,7 +1899,9 @@ function bindPlayer(){
   $('#cdPlay').onclick = () => v.paused ? v.play() : v.pause();
   $('#cdBack').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 10); };
   $('#cdFwd').onclick = () => { v.currentTime = Math.min(dur(), v.currentTime + 10); };
-  $('#cdFull').onclick = () => v.requestFullscreen?.();
+  $('#cdFull').onclick = () => { setVideoOpen(true); v.requestFullscreen?.(); };
+  $('#cdVidToggle').onclick = () => setVideoOpen(!settings.videoOpen);
+  setVideoOpen(settings.videoOpen);
   $('#cdRate').onclick = e => { const b = e.target.closest('[data-rate]'); if (!b) return; v.playbackRate = +b.dataset.rate;
     $('#cdRate').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#cdTimeline').addEventListener('click', e => {
@@ -1897,6 +1910,17 @@ function bindPlayer(){
     v.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur();
   });
   paint();
+}
+
+// Mostra ou esconde a imagem do vídeo; controles e linha do tempo continuam visíveis (o áudio segue tocando)
+function setVideoOpen(open){
+  if (settings.videoOpen !== open){ settings.videoOpen = open; saveSettings(); }
+  const card = $('#cdVideo .rec-card'), b = $('#cdVidToggle');
+  if (!card || !b) return;
+  card.classList.toggle('collapsed', !open);
+  b.innerHTML = `${open ? 'Recolher vídeo' : 'Expandir vídeo'} ${ICON.chevron(14)}`;
+  b.setAttribute('aria-expanded', String(open));
+  b.title = (open ? 'Recolher' : 'Expandir') + ' o vídeo (V)';
 }
 
 function seekCall(ms){
@@ -1989,6 +2013,7 @@ document.addEventListener('keydown', e => {
     if (v && (k === ' ' || k === 'k')){ e.preventDefault(); v.paused ? v.play() : v.pause(); }
     else if (v && k === 'j') v.currentTime = Math.max(0, v.currentTime - 10);
     else if (v && k === 'l') v.currentTime += 10;
+    else if (v && k === 'v') setVideoOpen(!settings.videoOpen);
     return;
   }
   if (e.key === '/'){ e.preventDefault(); $(settings.mode === 'crm' ? '#crmQ' : '#q').focus(); return; }
