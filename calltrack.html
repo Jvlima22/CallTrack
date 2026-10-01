@@ -237,6 +237,38 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 .crm-login h2{margin:0}
 .crm-login input{height:36px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:0 10px}
 .crm-err{color:var(--danger);font-size:13px;min-height:18px}
+.crm-login input[readonly]{background:var(--panel-2)}
+/* Minha conta / Usuários */
+.acct{padding:20px;display:grid;gap:18px}
+.acct h3{margin:0;display:flex;align-items:center;gap:8px}
+.acct h3 .spacer{flex:1}
+.acct h4{margin:0 0 8px;font-size:13.5px}
+.acct section{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
+.acct input,.acct select{height:34px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel);padding:0 10px;color:var(--text);font:inherit;font-size:13.5px}
+.acct .row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.acct .row label{flex:1;min-width:150px}
+.acct .err{color:var(--danger);font-size:13px;min-height:0}
+.acct .err:empty{display:none}
+.who{display:grid;gap:2px}
+.who b{font-size:15px}
+.link-box{display:grid;gap:8px;padding:12px;border-radius:9px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+.link-box .row input{flex:1;min-width:0;font:12.5px ui-monospace,Consolas,monospace}
+.tok-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tok-list li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px}
+.tok-list li .grow{flex:1;min-width:0}
+dialog.mid{width:min(980px,96vw);max-height:92vh}
+.users-wrap{overflow:auto}
+.users{width:100%;border-collapse:collapse;font-size:13px}
+.users th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.users td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.users td select{height:30px;font-size:12.5px;padding:0 6px}
+.users tr.off td:not(:last-child){opacity:.55}
+.users .acts{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+.users .acts .btn{height:28px;padding:0 8px;font-size:12.5px}
+.ev-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:320px;overflow:auto;font-size:12.5px}
+.ev-list li{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:5px 8px;border-radius:6px}
+.ev-list li.fail{background:var(--danger-soft)}
+.ev-list .t{color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* Badge "Ao vivo" piscando na cor da saúde da call */
 .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:2px 9px 2px 7px;border-radius:999px;white-space:nowrap;
@@ -432,13 +464,30 @@ dl.sum dd{margin:0}
 
 <section class="crm" id="crm" hidden>
   <div class="crm-login" id="crmLogin" hidden>
-    <form class="card" id="crmLoginForm" onsubmit="return false">
-      <h2>CRM de reuniões</h2>
-      <div class="muted small">Calls do Google Meet analisadas pela extensão CallTrack Copilot (metodologia SPICED). Entre com o mesmo token usado na extensão.</div>
-      <label>Servidor<input type="text" name="base" placeholder="http://localhost:8787" autocomplete="off"></label>
-      <label>Token do vendedor<input type="password" name="token" placeholder="spc_…" autocomplete="off"></label>
+    <form class="card" id="crmLoginForm" novalidate>
+      <h2>Entrar no CRM</h2>
+      <div class="muted small">Calls do Google Meet analisadas pela extensão CallTrack Copilot (metodologia SPICED).</div>
+      <label>E-mail<input type="email" name="email" autocomplete="username" required></label>
+      <label>Senha<input type="password" name="password" autocomplete="current-password" required></label>
       <div class="crm-err" id="crmErr"></div>
-      <button class="btn primary" id="crmLoginBtn">Acessar CRM</button>
+      <button class="btn primary" id="crmLoginBtn" type="submit">Entrar</button>
+      <div class="muted small">Esqueceu a senha ou ainda não tem acesso? Peça ao administrador um link para definir a senha.</div>
+    </form>
+    <form class="card" id="crmPwForm" novalidate hidden>
+      <h2 id="pwTitle">Definir senha</h2>
+      <div class="muted small" id="pwWho"></div>
+      <input type="email" name="email" autocomplete="username" readonly>
+      <label>Nova senha<input type="password" name="password" autocomplete="new-password" required></label>
+      <label>Repita a senha<input type="password" name="confirm" autocomplete="new-password" required></label>
+      <div class="muted small">Mínimo de 10 caracteres. Uma frase longa (ex.: três palavras e um número) é mais segura e mais fácil de lembrar.</div>
+      <div class="crm-err" id="pwErr"></div>
+      <button class="btn primary" id="pwBtn" type="submit">Salvar senha e entrar</button>
+    </form>
+    <form class="card" id="crmFileForm" novalidate hidden>
+      <h2>Abra o CRM pelo servidor</h2>
+      <div class="muted small">Por segurança, o CRM só funciona aberto pelo endereço do servidor do CallTrack (o login fica num cookie protegido daquele endereço). O módulo Atendimentos continua funcionando neste arquivo.</div>
+      <label>Endereço do servidor<input type="url" name="base" placeholder="https://seu-servidor" autocomplete="url"></label>
+      <button class="btn primary" type="submit">Abrir o CRM</button>
     </form>
   </div>
   <div id="crmApp" hidden style="display:contents">
@@ -451,13 +500,78 @@ dl.sum dd{margin:0}
       <span class="spacer"></span>
       <span class="muted small" id="crmMeta"></span>
       <button class="btn" id="crmRefresh" title="Atualizar">Atualizar</button>
-      <button class="btn ghost" id="crmLogout" title="Trocar token">Sair</button>
+      <button class="btn ghost" id="crmUsers" hidden>Usuários</button>
+      <button class="btn ghost" id="crmAccount" title="Minha conta: senha e tokens da extensão">Minha conta</button>
+      <button class="btn ghost" id="crmLogout">Sair</button>
     </div>
     <div class="board" id="board"></div>
   </div>
 </section>
 
 <dialog id="dlgCrmCall" class="wide"><div class="cd" id="crmCallBody"></div></dialog>
+
+<dialog id="dlgAccount">
+  <div class="acct">
+    <h3>Minha conta <span class="spacer"></span><button class="btn icon ghost" data-close title="Fechar">✕</button></h3>
+    <div class="who" id="acWho"></div>
+    <section>
+      <div>
+        <h4>Extensão CallTrack Copilot</h4>
+        <div class="muted small">Gere um token para cada computador onde a extensão está instalada. Se perder um computador, revogue só o token dele.</div>
+      </div>
+      <ul class="tok-list" id="acTokens"></ul>
+      <form class="row" id="acTokForm" novalidate>
+        <label>Nome do computador<input name="name" maxlength="60" placeholder="Ex.: Notebook do escritório" autocomplete="off"></label>
+        <button class="btn" type="submit">Gerar token</button>
+      </form>
+      <div class="link-box" id="acNewTok" hidden></div>
+      <div class="err" id="acTokErr"></div>
+    </section>
+    <section>
+      <h4>Trocar senha</h4>
+      <form id="acPwForm" novalidate style="display:grid;gap:8px">
+        <input type="email" name="email" autocomplete="username" hidden readonly>
+        <label>Senha atual<input type="password" name="current" autocomplete="current-password"></label>
+        <div class="row">
+          <label>Nova senha<input type="password" name="password" autocomplete="new-password"></label>
+          <label>Repita a nova senha<input type="password" name="confirm" autocomplete="new-password"></label>
+        </div>
+        <div class="err" id="acPwErr"></div>
+        <div class="dlg-actions"><button class="btn primary" type="submit">Salvar nova senha</button></div>
+      </form>
+    </section>
+    <section>
+      <h4>Sessões</h4>
+      <div class="row" style="align-items:center">
+        <div class="muted small" style="flex:1">Esqueceu o CRM aberto em outro computador? Saia de todos os outros lugares sem sair deste.</div>
+        <button class="btn" id="acRevokeOthers">Sair dos outros dispositivos</button>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<dialog id="dlgUsers" class="mid">
+  <div class="acct">
+    <h3>Usuários <span class="spacer"></span><button class="btn icon ghost" data-close title="Fechar">✕</button></h3>
+    <form class="row" id="usInvite" novalidate>
+      <label>Nome<input name="name" maxlength="100" autocomplete="off"></label>
+      <label>E-mail<input name="email" type="email" maxlength="200" autocomplete="off"></label>
+      <label style="flex:0 0 130px;min-width:0">Papel<select name="role"></select></label>
+      <label style="flex:0 0 170px;min-width:0">Time<select name="team_id"></select></label>
+      <button class="btn primary" type="submit">Convidar</button>
+    </form>
+    <div class="err" id="usErr"></div>
+    <div class="link-box" id="usLink" hidden></div>
+    <div class="users-wrap">
+      <table class="users">
+        <thead><tr><th>Pessoa</th><th>Papel</th><th>Time</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
+        <tbody id="usRows"></tbody>
+      </table>
+    </div>
+    <details id="usEvents"><summary style="cursor:pointer;font-weight:600">Registro de acessos (últimos 100)</summary><ul class="ev-list" id="usEvList"></ul></details>
+    <div class="muted small">Vendedor vê as próprias calls; gestor, as do seu time; admin, todas da conta. Desativar alguém encerra na hora as sessões e os tokens da extensão dessa pessoa.</div>
+  </div>
+</dialog>
 
 <dialog id="dlgSettings">
   <form class="settings" method="dialog" id="settingsForm">
@@ -1238,59 +1352,94 @@ const CALL_STATUS = {live:['Ao vivo','danger'], processing:['Processando','info'
 const EVENT_LABEL = {stage_change:'Etapa', suggestion:'Sugestão', objection:'Objeção', case_request:'Pediu case', overpromise:'Overpromise'};
 const PRIORITY = {high:['Alta','danger'], medium:['Média','warn'], low:['Baixa','neutral']};
 
-const crm = {base:'', token:'', calls:[], loaded:false, loading:false, timer:null};
+const crm = {calls:[], loaded:false, loading:false, timer:null, me:null, pwToken:''};
+const USER_ROLE = {seller:'Vendedor', manager:'Gestor', admin:'Admin'};
+// O CRM usa a sessão (cookie HttpOnly) do servidor que entregou a página; aberto como arquivo, não há sessão.
+const crmServed = () => /^https?:$/.test(location.protocol);
 
-function crmDefaultBase(){ return /^https?:$/.test(location.protocol) ? location.origin : 'http://localhost:8787'; }
-function crmLoadCreds(){
-  try {
-    crm.base = localStorage.getItem('ct-crm-base') || crmDefaultBase();
-    crm.token = localStorage.getItem('ct-crm-token') || localStorage.getItem('spiced_token') || '';
-  } catch (e) { crm.base = crmDefaultBase(); }
-  // A extensão abre o CRM com #token=… (o fragmento não vai ao servidor nem fica no log).
-  const m = location.hash.match(/(?:^#|&)token=([^&]+)/);
-  if (m){
-    crm.token = decodeURIComponent(m[1]);
-    if (/^https?:$/.test(location.protocol)) crm.base = location.origin;
-    crmSaveCreds();
-    settings.mode = 'crm';
-    history.replaceState(null, '', location.pathname + location.search);
-  }
+function crmInit(){
+  // credenciais antigas (token no navegador) não são mais usadas
+  try { ['ct-crm-token', 'ct-crm-base', 'spiced_token'].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  crmReadHash();
 }
-function crmSaveCreds(){
-  try { localStorage.setItem('ct-crm-base', crm.base); localStorage.setItem('ct-crm-token', crm.token); localStorage.removeItem('spiced_token'); } catch (e) {}
+// #senha=… (link de definir senha) e #token=… (extensão antiga). O fragmento não vai ao servidor nem fica no log.
+function crmReadHash(){
+  const pw = location.hash.match(/(?:^#|&)senha=([A-Za-z0-9_-]+)/);
+  const old = /(?:^#|&)token=/.test(location.hash);
+  if (!pw && !old) return false;
+  history.replaceState(null, '', location.pathname + location.search);
+  settings.mode = 'crm';
+  if (pw) crm.pwToken = pw[1];
+  else crm.oldLink = true;
+  return true;
 }
 
 async function crmApi(path, opts = {}){
-  const headers = {Authorization: `Bearer ${crm.token}`};
+  const headers = {};
   if (opts.body) headers['Content-Type'] = 'application/json';
   let r;
-  try { r = await fetch(crm.base.replace(/\/+$/, '') + path, {...opts, headers}); }
-  catch (e) { throw Object.assign(new Error(`Não foi possível conectar a ${crm.base}.`), {network:true}); }
+  try { r = await fetch(path, {...opts, headers, credentials:'same-origin'}); }
+  catch (e) { throw Object.assign(new Error('Não foi possível conectar ao servidor do CallTrack.'), {network:true}); }
   const data = await r.json().catch(() => ({}));
-  if (r.status === 401){ crmShowLogin('Token inválido ou expirado.'); throw Object.assign(new Error('Token inválido.'), {auth:true}); }
-  if (!r.ok) throw new Error(data.error || `Erro ${r.status}`);
+  if (r.status === 401 && !path.startsWith('/auth/')){
+    const had = !!crm.me;
+    crm.me = null; renderCrmUser();
+    crmShowLogin(had ? 'Sua sessão expirou. Entre de novo.' : '');
+    throw Object.assign(new Error('Sessão expirada.'), {auth:true});
+  }
+  if (!r.ok) throw Object.assign(new Error(data.error || `Erro ${r.status}`), {status:r.status});
   return data;
+}
+
+function crmShowCard(id){
+  ['crmLoginForm', 'crmPwForm', 'crmFileForm'].forEach(x => { $('#' + x).hidden = x !== id; });
+  $('#crmLogin').hidden = false; $('#crmApp').hidden = true;
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
 }
 
 function crmShowLogin(msg = ''){
   crm.loaded = false; crm.calls = [];
-  const f = $('#crmLoginForm');
-  f.base.value = crm.base; f.token.value = '';
-  $('#crmErr').textContent = msg;
-  $('#crmLogin').hidden = false; $('#crmApp').hidden = true;
   renderStats();
-  if (settings.mode === 'crm') setTimeout(() => f.token.focus(), 30);
+  if (!crmServed()){
+    crmShowCard('crmFileForm');
+    return;
+  }
+  crmShowCard('crmLoginForm');
+  const f = $('#crmLoginForm');
+  f.password.value = '';
+  $('#crmErr').textContent = msg || (crm.oldLink ? 'O CRM agora usa e-mail e senha. Se ainda não tem senha, peça ao administrador o link para criar.' : '');
+  if (settings.mode === 'crm') setTimeout(() => (f.email.value ? f.password : f.email).focus(), 30);
+}
+
+async function crmShowPasswordForm(){
+  crmShowCard('crmPwForm');
+  const f = $('#crmPwForm');
+  f.reset(); $('#pwErr').textContent = ''; $('#pwWho').textContent = 'Conferindo o link…';
+  $('#pwBtn').disabled = true;
+  try {
+    const r = await crmApi('/auth/password-link/check', {method:'POST', body: JSON.stringify({token: crm.pwToken})});
+    $('#pwTitle').textContent = r.purpose === 'invite' ? 'Criar sua senha' : 'Definir nova senha';
+    $('#pwWho').textContent = `${r.name}, defina a senha que você vai usar para entrar no CRM.`;
+    f.email.value = r.email;
+    $('#pwBtn').disabled = false;
+    setTimeout(() => f.password.focus(), 30);
+  } catch (e) {
+    crm.pwToken = '';
+    $('#pwTitle').textContent = 'Link inválido';
+    $('#pwWho').textContent = e.message;
+    f.email.hidden = true;
+  }
 }
 
 async function loadCrm(){
-  if (!crm.token) return crmShowLogin();
+  if (!crmServed()) return crmShowLogin();
+  if (crm.pwToken) return crmShowPasswordForm();
   if (crm.loading) return;
   crm.loading = true;
-  const token = crm.token;
   $('#crmMeta').textContent = 'Atualizando…';
   try {
+    if (!crm.me){ crm.me = await crmApi('/api/me'); renderCrmUser(); }
     crm.calls = await crmApi('/api/crm/calls');
-    if (!crm.me) crm.me = await crmApi('/api/me').catch(() => null);
     crm.loaded = true;
     $('#crmLogin').hidden = true; $('#crmApp').hidden = false;
     renderCrm();
@@ -1300,8 +1449,250 @@ async function loadCrm(){
     else toast(e.message, 'warn');
   } finally {
     crm.loading = false;
-    if (crm.token && crm.token !== token) loadCrm(); // token trocado durante o carregamento
   }
+}
+
+function renderCrmUser(){
+  const me = crm.me;
+  $('#crmUsers').hidden = me?.role !== 'admin';
+  $('#crmAccount').textContent = me ? me.name.split(' ')[0] : 'Minha conta';
+  $('#crmAccount').title = me ? `${me.name} · Minha conta: senha e tokens da extensão` : 'Minha conta';
+}
+
+/* ---------- Minha conta ---------- */
+const fmtWhen = d => d ? `${fmtData(d)} ${fmtHora(d)}` : 'nunca';
+function copyBox(box, {title, value, note}){
+  box.hidden = false;
+  box.innerHTML = `<b>${esc(title)}</b><div class="row"><input readonly value="${esc(value)}"><button class="btn" type="button">${ICON.copy(14)} Copiar</button></div>${note ? `<div class="muted small">${note}</div>` : ''}`;
+  const input = box.querySelector('input');
+  box.querySelector('button').onclick = async () => {
+    try { await navigator.clipboard.writeText(value); toast('Copiado'); }
+    catch (e) { input.select(); document.execCommand('copy'); toast('Copiado'); }
+  };
+  input.onfocus = () => input.select();
+}
+
+async function openAccount(){
+  const me = crm.me; if (!me) return;
+  $('#acWho').innerHTML = `<b>${esc(me.name)}</b><span class="muted">${esc(me.email)} · ${USER_ROLE[me.role] || me.role}${me.team_name ? ' · ' + esc(me.team_name) : ''}${me.org_name ? ' · ' + esc(me.org_name) : ''}</span>`;
+  $('#acPwForm').reset(); $('#acPwForm').email.value = me.email; $('#acPwErr').textContent = '';
+  $('#acNewTok').hidden = true; $('#acTokErr').textContent = '';
+  $('#dlgAccount').showModal();
+  await renderTokens();
+}
+async function renderTokens(){
+  const box = $('#acTokens');
+  try {
+    const list = await crmApi('/api/me/tokens');
+    box.innerHTML = list.length ? list.map(t => `<li><div class="grow"><b>${esc(t.name)}</b>${t.hint ? ` <span class="muted small">…${esc(t.hint)}</span>` : ''}
+        <div class="muted small">Criado em ${fmtWhen(t.created_at)} · último uso: ${fmtWhen(t.last_used_at)}</div></div>
+        <button class="btn text-danger" data-revoke="${esc(t.id)}" data-name="${esc(t.name)}">Revogar</button></li>`).join('')
+      : '<li class="muted small">Nenhum token ativo. A extensão só funciona com um token gerado aqui.</li>';
+  } catch (e) { if (!e.auth) $('#acTokErr').textContent = e.message; }
+}
+
+/* ---------- Usuários (admin) ---------- */
+const us = {users:[], teams:[]};
+const EVENT_TEXT = {login:'Entrou', logout:'Saiu', password_created:'Criou a senha', password_reset:'Redefiniu a senha', password_change:'Trocou a senha',
+  password_link:'Link de senha gerado', sessions_revoked:'Acessos encerrados', token_created:'Token da extensão gerado', token_revoked:'Token da extensão revogado',
+  user_invited:'Usuário convidado', user_updated:'Usuário alterado', team_created:'Time criado'};
+const teamOpts = sel => `<option value="">Sem time</option>${us.teams.map(t => `<option value="${esc(t.id)}"${String(t.id) === String(sel || '') ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">+ Novo time…</option>`;
+const roleOpts = sel => Object.entries(USER_ROLE).map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v}</option>`).join('');
+
+async function openUsers(){
+  $('#usErr').textContent = ''; $('#usLink').hidden = true; $('#usInvite').reset();
+  $('#dlgUsers').showModal();
+  await loadUsers();
+}
+async function loadUsers(){
+  try {
+    [us.users, us.teams] = await Promise.all([crmApi('/api/admin/users'), crmApi('/api/admin/teams')]);
+    const f = $('#usInvite');
+    f.role.innerHTML = roleOpts('seller');
+    f.team_id.innerHTML = teamOpts('');
+    renderUsers();
+    if ($('#usEvents').open) loadEvents();
+  } catch (e) { if (!e.auth) $('#usErr').textContent = e.message; }
+}
+function renderUsers(){
+  const meId = String(crm.me?.id);
+  $('#usRows').innerHTML = us.users.map(u => {
+    const self = String(u.id) === meId;
+    const state = !u.active ? '<span class="badge neutral">Desativado</span>' : !u.has_password ? '<span class="badge warn">Aguardando senha</span>' : '<span class="badge ok">Ativo</span>';
+    const ext = u.tokens ? `<div class="muted small">${u.tokens} token${u.tokens > 1 ? 's' : ''} da extensão</div>` : '';
+    return `<tr class="${u.active ? '' : 'off'}" data-uid="${esc(u.id)}">
+      <td><b>${esc(u.name)}</b>${self ? ' <span class="muted small">(você)</span>' : ''}<div class="muted small">${esc(u.email)}</div></td>
+      <td><select data-f="role"${self ? ' disabled title="Você não pode mudar o seu próprio papel"' : ''}>${roleOpts(u.role)}</select></td>
+      <td><select data-f="team_id">${teamOpts(u.team_id)}</select></td>
+      <td>${state}${ext}</td>
+      <td class="small">${u.last_login_at ? fmtWhen(u.last_login_at) : '<span class="muted">nunca entrou</span>'}</td>
+      <td><div class="acts">
+        ${u.active ? `<button class="btn" data-a="link" title="Gera um link de uso único para a pessoa criar ou redefinir a senha">${u.has_password ? 'Redefinir senha' : 'Link de convite'}</button>` : ''}
+        ${!self && u.active && (u.sessions || u.tokens) ? '<button class="btn" data-a="revoke" title="Desconecta todos os navegadores e tokens da extensão">Encerrar acessos</button>' : ''}
+        ${self ? '' : `<button class="btn ${u.active ? 'text-danger' : ''}" data-a="active">${u.active ? 'Desativar' : 'Reativar'}</button>`}
+      </div></td></tr>`;
+  }).join('');
+}
+function showUserLink(user, link){
+  const url = location.origin + link.path;
+  copyBox($('#usLink'), {title: `Link para ${user.name} definir a senha`, value: url,
+    note: `Uso único, vale até ${fmtWhen(link.expires_at)}. Envie só para ${esc(user.email)} (WhatsApp, e-mail). Quem tiver o link define a senha dessa conta.`});
+}
+async function pickTeam(select, prev){
+  if (select.value !== '__new') return select.value;
+  const name = (prompt('Nome do novo time:') || '').trim();
+  if (!name){ select.value = prev || ''; return null; }
+  try {
+    const t = await crmApi('/api/admin/teams', {method:'POST', body: JSON.stringify({name})});
+    us.teams.push(t); us.teams.sort((a, b) => a.name.localeCompare(b.name));
+    return t.id;
+  } catch (e) { if (!e.auth) toast(e.message, 'warn'); select.value = prev || ''; return null; }
+}
+async function patchUser(id, body){
+  try {
+    const r = await crmApi(`/api/admin/users/${encodeURIComponent(id)}`, {method:'PATCH', body: JSON.stringify(body)});
+    Object.assign(us.users.find(u => String(u.id) === String(id)) || {}, r.user);
+    toast('Usuário atualizado');
+  } catch (e) { if (!e.auth) toast(e.message, 'warn'); }
+  await loadUsers();
+}
+async function loadEvents(){
+  try {
+    const list = await crmApi('/api/admin/events');
+    $('#usEvList').innerHTML = list.map(e => {
+      const who = e.user_name || e.email || '';
+      const by = e.actor_name && e.actor_name !== e.user_name ? ` · por ${esc(e.actor_name)}` : '';
+      return `<li class="${e.ok ? '' : 'fail'}"><span class="t">${fmtWhen(e.at)}</span><span>${e.ok ? '' : '<b>Falhou:</b> '}${esc(EVENT_TEXT[e.action] || e.action)}${who ? ' · ' + esc(who) : ''}${by}${e.detail ? ` <span class="muted">(${esc(e.detail)})</span>` : ''}${e.ip ? ` <span class="muted small">· ${esc(e.ip)}</span>` : ''}</span></li>`;
+    }).join('') || '<li class="muted">Nada registrado ainda.</li>';
+  } catch (e) { if (!e.auth) $('#usEvList').innerHTML = `<li class="crm-err">${esc(e.message)}</li>`; }
+}
+
+function bindAuthUi(){
+  document.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => b.closest('dialog').close(); });
+  const submitting = (form, fn) => form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type=submit]');
+    if (btn?.disabled) return;
+    if (btn) btn.disabled = true;
+    try { await fn(form); } finally { if (btn) btn.disabled = false; }
+  });
+
+  submitting($('#crmLoginForm'), async f => {
+    const email = f.email.value.trim(), password = f.password.value;
+    if (!email || !password){ $('#crmErr').textContent = 'Informe e-mail e senha.'; return; }
+    $('#crmErr').textContent = 'Entrando…';
+    try {
+      await crmApi('/auth/login', {method:'POST', body: JSON.stringify({email, password})});
+      crm.me = null; crm.oldLink = false; f.password.value = '';
+      $('#crmErr').textContent = '';
+      await loadCrm();
+    } catch (e) { $('#crmErr').textContent = e.message; f.password.select(); }
+  });
+
+  submitting($('#crmPwForm'), async f => {
+    if (!crm.pwToken) return;
+    if (f.password.value !== f.confirm.value){ $('#pwErr').textContent = 'As duas senhas não são iguais.'; return; }
+    try {
+      await crmApi('/auth/password-link', {method:'POST', body: JSON.stringify({token: crm.pwToken, password: f.password.value})});
+      crm.pwToken = ''; crm.me = null; f.reset();
+      toast('Senha definida. Bem-vindo!');
+      await loadCrm();
+    } catch (e) { $('#pwErr').textContent = e.message; }
+  });
+
+  submitting($('#crmFileForm'), async f => {
+    const base = f.base.value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\//.test(base)) return toast('Informe o endereço completo, com http:// ou https://', 'warn');
+    location.href = base + '/';
+  });
+
+  $('#crmLogout').onclick = async () => {
+    try { await crmApi('/auth/logout', {method:'POST'}); } catch (e) {}
+    crm.me = null; renderCrmUser();
+    crmShowLogin('Você saiu.');
+  };
+  $('#crmAccount').onclick = openAccount;
+  $('#crmUsers').onclick = openUsers;
+
+  submitting($('#acTokForm'), async f => {
+    const name = f.name.value.trim();
+    $('#acTokErr').textContent = '';
+    if (!name){ $('#acTokErr').textContent = 'Dê um nome ao computador.'; return; }
+    try {
+      const t = await crmApi('/api/me/tokens', {method:'POST', body: JSON.stringify({name})});
+      f.reset();
+      copyBox($('#acNewTok'), {title: `Token de "${t.name}"`, value: t.token,
+        note: `Aparece só agora. Na extensão (ícone do CallTrack na barra do Chrome), cole em <b>Token</b> e use <b>${esc(location.origin)}</b> em <b>Servidor</b>. Não envie este token a ninguém.`});
+      await renderTokens();
+    } catch (e) { if (!e.auth) $('#acTokErr').textContent = e.message; }
+  });
+  $('#acTokens').addEventListener('click', async e => {
+    const b = e.target.closest('[data-revoke]'); if (!b) return;
+    if (!confirm(`Revogar o token de "${b.dataset.name}"? A extensão daquele computador para de funcionar até receber um token novo.`)) return;
+    try { await crmApi(`/api/me/tokens/${encodeURIComponent(b.dataset.revoke)}`, {method:'DELETE'}); toast('Token revogado'); $('#acNewTok').hidden = true; }
+    catch (err) { if (!err.auth) toast(err.message, 'warn'); }
+    await renderTokens();
+  });
+  submitting($('#acPwForm'), async f => {
+    $('#acPwErr').textContent = '';
+    if (f.password.value !== f.confirm.value){ $('#acPwErr').textContent = 'As duas senhas novas não são iguais.'; return; }
+    try {
+      await crmApi('/auth/password', {method:'POST', body: JSON.stringify({current: f.current.value, password: f.password.value})});
+      f.reset(); f.email.value = crm.me?.email || '';
+      toast('Senha trocada. Os outros dispositivos foram desconectados.');
+    } catch (e) { if (!e.auth) $('#acPwErr').textContent = e.message; }
+  });
+  $('#acRevokeOthers').onclick = async () => {
+    try { await crmApi('/auth/sessions/revoke-others', {method:'POST'}); toast('Você saiu dos outros dispositivos.'); }
+    catch (e) { if (!e.auth) toast(e.message, 'warn'); }
+  };
+
+  submitting($('#usInvite'), async f => {
+    $('#usErr').textContent = '';
+    const body = {name: f.name.value.trim(), email: f.email.value.trim(), role: f.role.value, team_id: f.team_id.value === '__new' ? '' : f.team_id.value};
+    if (!body.name || !body.email){ $('#usErr').textContent = 'Informe nome e e-mail.'; return; }
+    try {
+      const r = await crmApi('/api/admin/users', {method:'POST', body: JSON.stringify(body)});
+      f.reset();
+      showUserLink(r.user, r.link);
+      await loadUsers();
+    } catch (e) { if (!e.auth) $('#usErr').textContent = e.message; }
+  });
+  $('#usInvite').team_id.addEventListener('change', async e => {
+    const id = await pickTeam(e.target, '');
+    if (id){ e.target.innerHTML = teamOpts(id); }
+  });
+  $('#usRows').addEventListener('change', async e => {
+    const sel = e.target.closest('select[data-f]'); if (!sel) return;
+    const uid = sel.closest('tr').dataset.uid, u = us.users.find(x => String(x.id) === uid);
+    if (sel.dataset.f === 'team_id'){
+      const id = await pickTeam(sel, u?.team_id);
+      if (id === null) return;
+      return patchUser(uid, {team_id: id || null});
+    }
+    if (sel.dataset.f === 'role'){
+      if (sel.value === 'admin' && !confirm(`Tornar ${u.name} admin? Admin vê todas as calls e vídeos e gerencia usuários.`)){ sel.value = u.role; return; }
+      return patchUser(uid, {role: sel.value});
+    }
+  });
+  $('#usRows').addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const uid = b.closest('tr').dataset.uid, u = us.users.find(x => String(x.id) === uid);
+    if (b.dataset.a === 'link'){
+      if (u.has_password && !confirm(`Gerar um link para ${u.name} redefinir a senha? A senha atual continua valendo até o link ser usado.`)) return;
+      try { const r = await crmApi(`/api/admin/users/${encodeURIComponent(uid)}/password-link`, {method:'POST'}); showUserLink(u, r.link); }
+      catch (err) { if (!err.auth) toast(err.message, 'warn'); }
+    } else if (b.dataset.a === 'revoke'){
+      if (!confirm(`Encerrar todos os acessos de ${u.name}? Os navegadores saem do CRM e os tokens da extensão param de funcionar.`)) return;
+      try { await crmApi(`/api/admin/users/${encodeURIComponent(uid)}/revoke`, {method:'POST'}); toast('Acessos encerrados'); }
+      catch (err) { if (!err.auth) toast(err.message, 'warn'); }
+      await loadUsers();
+    } else if (b.dataset.a === 'active'){
+      if (u.active && !confirm(`Desativar ${u.name}? A pessoa sai do CRM na hora e a extensão dela para de funcionar. As calls dela continuam no CRM.`)) return;
+      await patchUser(uid, {active: !u.active});
+    }
+  });
+  $('#usEvents').addEventListener('toggle', e => { if (e.target.open) loadEvents(); });
 }
 
 const scoreClass = v => v >= 7 ? 'ok' : v >= 5 ? 'warn' : 'danger';
@@ -1808,7 +2199,7 @@ function renderRecording(){
     box.innerHTML = `<div class="card rec-card">${head}<div class="muted">Vídeo excluído em ${fmtDateTime(r.deleted?.at)}. Motivo: ${esc(r.deleted?.reason || '')}</div></div>`;
   } else {
     box.innerHTML = `<div class="card rec-card${settings.videoOpen ? '' : ' collapsed'}">${head}
-      <video id="cdPlayer" preload="metadata" playsinline src="${esc(crm.base.replace(/\/+$/, '') + cd.recUrl)}"></video>
+      <video id="cdPlayer" preload="metadata" playsinline src="${esc(cd.recUrl)}"></video>
       <div class="vtl" id="cdTimeline" title="Clique para ir a esse momento"><div class="vtl-played" id="cdPlayed"></div></div>
       <div class="controls">
         <button class="play" id="cdPlay" title="Tocar/pausar (Espaço)">${ICON.play(20)}</button>
@@ -1894,7 +2285,7 @@ function bindPlayer(){
   v.addEventListener('error', async () => {
     // link assinado expirou (1 h): pede outro e continua de onde estava
     const at = v.currentTime; await loadRecording();
-    if (cd.recUrl){ v.src = crm.base.replace(/\/+$/, '') + cd.recUrl; v.currentTime = at; }
+    if (cd.recUrl){ v.src = cd.recUrl; v.currentTime = at; }
   }, {once: true});
   $('#cdPlay').onclick = () => v.paused ? v.play() : v.pause();
   $('#cdBack').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 10); };
@@ -1969,17 +2360,7 @@ function setMode(mode){
 function bindCrm(){
   $('#icoSearchCrm').innerHTML = ICON.search(16);
   $('#modes').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); };
-  $('#crmLoginBtn').onclick = () => {
-    const f = $('#crmLoginForm');
-    const token = f.token.value.trim();
-    if (!token){ $('#crmErr').textContent = 'Informe o token.'; return; }
-    crm.base = f.base.value.trim() || crmDefaultBase();
-    crm.token = token; crmSaveCreds();
-    crm.me = null;
-    $('#crmErr').textContent = 'Conectando…';
-    loadCrm();
-  };
-  $('#crmLogout').onclick = () => { crm.token = ''; crmSaveCreds(); crmShowLogin(); };
+  bindAuthUi();
   $('#crmRefresh').onclick = loadCrm;
   setInterval(() => {
     if (settings.mode !== 'crm' || document.hidden) return;
@@ -1990,7 +2371,7 @@ function bindCrm(){
     const at = e.target.closest('[data-seek-ms]');
     if (at && $('#cdPlayer') && !e.target.closest('input,textarea,select,button')) seekCall(+at.dataset.seekMs);
   });
-  window.addEventListener('hashchange', () => { if (/token=/.test(location.hash)){ crmLoadCreds(); setMode('crm'); } });
+  window.addEventListener('hashchange', () => { if (crmReadHash()) setMode('crm'); });
   $('#crmQ').addEventListener('input', renderCrm);
   ['crmSeller', 'crmPeriodo'].forEach(id => $('#' + id).addEventListener('change', renderCrm));
   const board = $('#board');
@@ -2062,7 +2443,7 @@ $('#dlgSettings').addEventListener('close', () => {
   $('#fCat').innerHTML += opts(Object.keys(CATEGORIAS));
   $('#fStatus').innerHTML += opts(STATUS);
   applyTheme();
-  crmLoadCreds();
+  crmInit();
   bindCrm();
   try {
     await DB.open();

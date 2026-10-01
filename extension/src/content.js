@@ -23,10 +23,11 @@
   const panel = CallTrackPanel.createPanel({ 
     onStart: start, 
     onEnd: () => end('manual'),
-    onCrm: () => window.open(`${base}/#token=${encodeURIComponent(cfg.token)}`, '_blank')
+    // o CRM tem login próprio (e-mail e senha); o token da extensão não abre o CRM
+    onCrm: () => window.open(`${base}/`, '_blank')
   });
   if (!cfg.backendUrl || !cfg.token) {
-    panel.setState('error', 'Configure o servidor e o token no ícone da extensão.');
+    panel.setState('error', 'Configure o servidor e o token no ícone da extensão. O token é gerado no CRM, em Minha conta.');
     return;
   }
 
@@ -166,7 +167,7 @@
       // Antes de reconectar, confere o motivo: token inválido ou call encerrada não adiantam insistir.
       const why = await callState();
       if (ended) return;
-      if (why === 'unauthorized') return stopLocal(null, 'Token inválido. Atualize o token no ícone da extensão.');
+      if (why === 'unauthorized') return stopLocal(null, 'Token inválido ou revogado. Gere outro no CRM (Minha conta) e cole no ícone da extensão.');
       if (why === 'ended') return stopLocal('Esta call já foi encerrada. O relatório fica pronto em alguns minutos.');
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, 15000);

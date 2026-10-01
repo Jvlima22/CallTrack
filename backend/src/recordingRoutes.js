@@ -60,15 +60,12 @@ export function finalizeRecording(callId, { clientDurationMs } = {}) {
   return job;
 }
 
-export default async function recordingRoutes(app, { auth, loadOwnedCall }) {
+export default async function recordingRoutes(app, { auth, authExtension, loadOwnedCall }) {
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: MAX_CHUNK_BYTES },
     (req, body, done) => done(null, body));
 
-  // Quem está logado (o CRM usa para mostrar ações de admin)
-  app.get('/api/me', { preHandler: auth }, async (req) => ({ id: req.user._id, name: req.user.name, role: req.user.role }));
-
   // Início: exige o aviso de gravação confirmado pelo vendedor
-  app.post('/calls/:id/recording/start', { preHandler: [auth, loadOwnedCall] }, async (req, reply) => {
+  app.post('/calls/:id/recording/start', { preHandler: [authExtension, loadOwnedCall] }, async (req, reply) => {
     const { mime, kind = 'video', offset_ms = 0, consent } = req.body ?? {};
     if (req.call.status !== 'live') return reply.code(409).send({ error: 'A call não está ao vivo.' });
     if (!consent?.confirmed) return reply.code(400).send({ error: 'Confirme que os participantes foram avisados da gravação.' });
@@ -89,7 +86,7 @@ export default async function recordingRoutes(app, { auth, loadOwnedCall }) {
   });
 
   // Pedaço do vídeo (corpo binário). Idempotente por seq.
-  app.put('/calls/:id/recording/chunks/:seq', { preHandler: [auth, loadOwnedCall], bodyLimit: MAX_CHUNK_BYTES }, async (req, reply) => {
+  app.put('/calls/:id/recording/chunks/:seq', { preHandler: [authExtension, loadOwnedCall], bodyLimit: MAX_CHUNK_BYTES }, async (req, reply) => {
     const seq = Number(req.params.seq);
     if (!Number.isInteger(seq) || seq < 0 || seq > 100000) return reply.code(400).send({ error: 'seq inválido' });
     if (!Buffer.isBuffer(req.body) || !req.body.length) return reply.code(400).send({ error: 'Pedaço vazio' });
@@ -104,7 +101,7 @@ export default async function recordingRoutes(app, { auth, loadOwnedCall }) {
     return { ok: true, seq };
   });
 
-  app.post('/calls/:id/recording/finish', { preHandler: [auth, loadOwnedCall] }, async (req) => {
+  app.post('/calls/:id/recording/finish', { preHandler: [authExtension, loadOwnedCall] }, async (req) => {
     const d = Number(req.body?.duration_ms);
     void finalizeRecording(req.call._id, { clientDurationMs: Number.isFinite(d) && d > 0 ? Math.round(d) : undefined });
     return { ok: true, status: 'processing' };

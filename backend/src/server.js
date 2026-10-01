@@ -2,7 +2,8 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
-import { connectDb, userFromToken, defaultPlaybook } from './db.js';
+import { connectDb, defaultPlaybook } from './db.js';
+import authRoutes, { auth, authExtension, migrateLegacyTokens } from './auth.js';
 import { Call, Turn, CallAnalysis, LiveEvent, User } from './models.js';
 import { AUTOFILL_FIELDS } from './autofill.js';
 import { fileURLToPath } from 'node:url';
@@ -17,10 +18,13 @@ import { MEET_SELECTORS } from './selectors.js';
 import recordingRoutes, { finalizeRecording, recordingsByCall } from './recordingRoutes.js';
 
 await connectDb();
+const migrated = await migrateLegacyTokens();
 
 // O token do vendedor pode vir na query do WebSocket; não deixa ele ir para o log.
 const redactUrl = (url) => String(url ?? '').replace(/([?&]token=)[^&]*/gi, '$1***');
 const app = Fastify({
+  // O túnel (cloudflared) roda nesta máquina: só ele pode informar IP e protocolo reais do visitante
+  trustProxy: ['127.0.0.1', '::1'],
   logger: {
     serializers: {
       req: (req) => ({ method: req.method, url: redactUrl(req.url), remoteAddress: req.ip }),
@@ -35,6 +39,7 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, 
   try { done(null, JSON.parse(body)); } catch (err) { err.statusCode = 400; done(err); }
 });
 await app.register(websocket);
+if (migrated) app.log.info(`${migrated} token(s) do seed migrado(s) para tokens da extensão`);
 
 // Interface do CallTrack (atendimentos + CRM das calls) — arquivo único na raiz do repositório.
 const CALLTRACK_HTML = fileURLToPath(new URL('../../calltrack.html', import.meta.url));
@@ -42,17 +47,8 @@ const IDLE_END_MS = 10 * 60 * 1000;
 // Código de fechamento do WebSocket que diz à extensão: a call acabou, não reconecte.
 const CALL_ENDED_CODE = 4000;
 
-// ─── Auth helpers ────────────────────────────────────────────────────────────
-
-// Token só no header Authorization. A única exceção é o WebSocket, porque o
-// navegador não deixa definir headers no handshake — ali ele vem em ?token=.
-async function auth(req, reply) {
-  let token = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-  if (!token && req.headers.upgrade?.toLowerCase() === 'websocket') token = req.query?.token;
-  const user = await userFromToken((token || '').trim());
-  if (!user) return reply.code(401).send({ error: 'Token inválido. Gere um novo token com npm run seed.' });
-  req.user = user;
-}
+// ─── Acesso ──────────────────────────────────────────────────────────────────
+// auth: CRM (sessão por cookie). authExtension: rotas que a extensão chama (token do computador ou sessão).
 
 // Quem o usuário pode ver: vendedor só as próprias calls, gestor as do time, admin a conta toda.
 async function visibleSellerFilter(u) {
@@ -71,9 +67,9 @@ async function loadOwnedCall(req, reply) {
   const isOwner = String(call.seller_id) === String(u._id);
   const isAdmin  = u.role === 'admin'   && String(call.org_id) === String(u.org_id);
   let isManager  = false;
-  if (u.role === 'manager') {
+  if (u.role === 'manager' && u.team_id && String(call.org_id) === String(u.org_id)) {
     const seller = await User.findById(call.seller_id).lean();
-    isManager = seller && String(seller.team_id) === String(u.team_id);
+    isManager = !!seller?.team_id && String(seller.team_id) === String(u.team_id);
   }
   if (!isOwner && !isAdmin && !isManager) return reply.code(403).send({ error: 'Sem acesso a esta call.' });
   req.call = call;
@@ -99,7 +95,8 @@ async function endCall(callId) {
 
 app.get('/health', async () => ({ ok: true }));
 
-await app.register(recordingRoutes, { auth, loadOwnedCall });
+await app.register(authRoutes);
+await app.register(recordingRoutes, { auth, authExtension, loadOwnedCall });
 
 app.get('/', async (req, reply) => reply.type('text/html; charset=utf-8').send(await readFile(CALLTRACK_HTML)));
 app.get('/dashboard', async (req, reply) => reply.redirect('/'));
@@ -142,7 +139,7 @@ app.get('/api/crm/calls', { preHandler: auth }, async (req) => {
 });
 
 // POST /calls — inicia uma call
-app.post('/calls', { preHandler: auth }, async (req, reply) => {
+app.post('/calls', { preHandler: authExtension }, async (req, reply) => {
   const { meeting_code, lead_name, lead_company } = req.body ?? {};
   const playbook = await defaultPlaybook(req.user.org_id);
   if (!playbook) return reply.code(400).send({ error: 'Nenhum playbook padrão configurado para a conta.' });
@@ -164,13 +161,13 @@ app.post('/calls', { preHandler: auth }, async (req, reply) => {
 });
 
 // POST /calls/:id/end
-app.post('/calls/:id/end', { preHandler: [auth, loadOwnedCall] }, async (req) => {
+app.post('/calls/:id/end', { preHandler: [authExtension, loadOwnedCall] }, async (req) => {
   await endCall(req.call._id);
   return { ok: true, status: 'processing' };
 });
 
 // GET /calls/:id — retorna call completa com turns, análise e eventos
-app.get('/calls/:id', { preHandler: [auth, loadOwnedCall] }, async (req) => {
+app.get('/calls/:id', { preHandler: [authExtension, loadOwnedCall] }, async (req) => {
   const [turns, analysis, events] = await Promise.all([
     Turn.find({ call_id: req.call._id }).sort({ seq: 1 }).lean(),
     CallAnalysis.findOne({ call_id: req.call._id }).lean(),
@@ -209,7 +206,7 @@ app.patch('/calls/:id', { preHandler: [auth, loadOwnedCall] }, async (req, reply
 });
 
 // GET /ws/calls/:id — WebSocket da call
-app.get('/ws/calls/:id', { websocket: true, preHandler: [auth, loadOwnedCall] }, async (socket, req) => {
+app.get('/ws/calls/:id', { websocket: true, preHandler: [authExtension, loadOwnedCall] }, async (socket, req) => {
   // O listener entra ANTES de qualquer await: a extensão manda falas, participantes e status
   // assim que a conexão abre, e o que chegasse enquanto a call carrega do banco se perderia.
   const early = [];

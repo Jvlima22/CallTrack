@@ -26,10 +26,73 @@ const userSchema = new Schema({
   team_id:         { type: Types.ObjectId, ref: 'Team' },
   role:            { type: String, enum: ['seller', 'manager', 'admin'], required: true },
   name:            { type: String, required: true },
-  email:           { type: String, required: true, unique: true },
+  email:           { type: String, required: true, unique: true, lowercase: true, trim: true },
+  // Token antigo do seed (antes dos tokens por computador). Migrado para ApiToken ao iniciar.
   api_token_hash:  { type: String, unique: true, sparse: true },
-});
+  password_hash:   String,          // scrypt; vazio até a pessoa abrir o link de definir senha
+  password_set_at: Date,
+  active:          { type: Boolean, default: true },
+  last_login_at:   Date,
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 export const User = model('User', userSchema);
+
+// ─── Sessão do CRM (cookie HttpOnly; no banco só o hash) ─────────────────────
+const sessionSchema = new Schema({
+  user_id:      { type: Types.ObjectId, ref: 'User', required: true },
+  token_hash:   { type: String, required: true, unique: true },
+  created_at:   { type: Date, default: Date.now },
+  last_seen_at: { type: Date, default: Date.now },
+  expires_at:   { type: Date, required: true },
+  revoked_at:   Date,
+  ip:           String,
+  user_agent:   String,
+});
+sessionSchema.index({ user_id: 1 });
+sessionSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 }); // o Mongo apaga as vencidas
+export const Session = model('Session', sessionSchema);
+
+// ─── Token da extensão (um por computador, revogável) ────────────────────────
+const apiTokenSchema = new Schema({
+  user_id:      { type: Types.ObjectId, ref: 'User', required: true },
+  name:         { type: String, required: true },
+  token_hash:   { type: String, required: true, unique: true },
+  hint:         String,           // últimos caracteres, para reconhecer o token na lista
+  created_at:   { type: Date, default: Date.now },
+  last_used_at: Date,
+  revoked_at:   Date,
+});
+apiTokenSchema.index({ user_id: 1 });
+export const ApiToken = model('ApiToken', apiTokenSchema);
+
+// ─── Link de definir senha (convite ou redefinição), uso único ───────────────
+const passwordLinkSchema = new Schema({
+  user_id:    { type: Types.ObjectId, ref: 'User', required: true },
+  token_hash: { type: String, required: true, unique: true },
+  purpose:    { type: String, enum: ['invite', 'reset'], required: true },
+  created_by: { type: Types.ObjectId, ref: 'User' },
+  created_at: { type: Date, default: Date.now },
+  expires_at: { type: Date, required: true },
+  used_at:    Date,
+});
+passwordLinkSchema.index({ user_id: 1 });
+passwordLinkSchema.index({ expires_at: 1 }, { expireAfterSeconds: 30 * 24 * 3600 });
+export const PasswordLink = model('PasswordLink', passwordLinkSchema);
+
+// ─── Registro de acessos (login, saída, convites, tokens, mudanças de usuário) ─
+const authEventSchema = new Schema({
+  org_id:   { type: Types.ObjectId, ref: 'Org' },
+  user_id:  { type: Types.ObjectId, ref: 'User' },  // sobre quem
+  actor_id: { type: Types.ObjectId, ref: 'User' },  // quem fez (admin, ou a própria pessoa)
+  email:    String,
+  action:   { type: String, required: true },
+  ok:       { type: Boolean, default: true },
+  detail:   String,
+  ip:       String,
+  user_agent: String,
+  at:       { type: Date, default: Date.now },
+}, { collection: 'auth_events' });
+authEventSchema.index({ org_id: 1, at: -1 });
+export const AuthEvent = model('AuthEvent', authEventSchema);
 
 // ─── Playbook ────────────────────────────────────────────────────────────────
 const playbookSchema = new Schema({
