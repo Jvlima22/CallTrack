@@ -63,3 +63,16 @@ test('Gemini: erros com mensagem clara', async () => {
   process.env.LLM_PROVIDER = 'gemini';
   await assert.rejects(callModel({ kind: 'live', system: 's', user: 'u' }), /GEMINI_API_KEY não definida/);
 });
+
+test('Gemini: sobrecarga no pós-call tenta de novo e cai para o modelo do ao vivo', async () => {
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    if (!url.includes('gemini-teste-live')) return { ok: false, status: 503, json: async () => ({ error: { message: 'high demand' } }) };
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }) };
+  };
+  const r = await callModel({ kind: 'postcall', system: 's', user: 'u' });
+  assert.deepEqual(r.data, { ok: true });
+  assert.equal(urls.filter((u) => /gemini-flash-latest/.test(u)).length, 3); // 1 tentativa + 2 novas
+  assert.match(urls.at(-1), /gemini-teste-live/);
+});

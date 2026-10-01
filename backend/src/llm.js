@@ -56,10 +56,35 @@ async function callAnthropic({ kind, model, system, user, maxTokens }) {
   return { text, costUsd, usage: u, model };
 }
 
+// Sobrecarga do Google ("high demand", 503/500) é comum no nível gratuito e passa sozinha:
+// tenta de novo com espera crescente e, no pós-call, cai para o modelo do ao vivo.
+const RETRY_WAITS_MS = { live: [1500], postcall: [3000, 8000] };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function callGemini({ kind, system, user, maxTokens, json }) {
+  const models = [GEMINI_MODELS[kind]];
+  const fallback = process.env.GEMINI_FALLBACK_MODEL || GEMINI_MODELS.live;
+  if (kind === 'postcall' && fallback !== models[0]) models.push(fallback);
+  let lastErr;
+  for (const model of models) {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await geminiRequest({ kind, model, system, user, maxTokens, json });
+      } catch (err) {
+        lastErr = err;
+        const waits = RETRY_WAITS_MS[kind] ?? [];
+        if (!err.retryable || attempt >= waits.length) break;
+        await sleep(waits[attempt]);
+      }
+    }
+    if (!lastErr?.retryable) break; // erro de chave/modelo/conteúdo: trocar de modelo não resolve
+  }
+  throw lastErr;
+}
+
+async function geminiRequest({ kind, model, system, user, maxTokens, json }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY não definida no .env');
-  const model = GEMINI_MODELS[kind];
   const res = await fetch(`${GEMINI_URL}/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -77,7 +102,8 @@ async function callGemini({ kind, system, user, maxTokens, json }) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = body?.error?.message || `HTTP ${res.status}`;
-    if (res.status === 429) throw new Error(`Gemini: limite do nível gratuito atingido, tente de novo em instantes (${msg})`);
+    if (res.status === 503 || res.status === 500) throw Object.assign(new Error(`Gemini: serviço sobrecarregado (${msg})`), { retryable: true });
+    if (res.status === 429) throw Object.assign(new Error(`Gemini: limite do nível gratuito atingido, tente de novo em instantes (${msg})`), { retryable: true });
     if (res.status === 404) throw new Error(`Gemini: modelo "${model}" não encontrado. Ajuste GEMINI_${kind === 'live' ? 'LIVE' : 'POSTCALL'}_MODEL no .env (${msg})`);
     throw new Error(`Gemini: ${msg}`);
   }
