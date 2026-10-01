@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "seed": "node scripts/seed.js",
     "test": "node --test test/*.test.js",
-    "backup:recordings": "node scripts/backup-recordings.js"
+    "backup:recordings": "node scripts/backup-recordings.js",
+    "llm:check": "node scripts/check-llm.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

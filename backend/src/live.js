@@ -1,5 +1,5 @@
 import { Call, Turn, LiveEvent, LiveState, User } from './models.js';
-import { callModel } from './llm.js';
+import { callModel, llmProvider } from './llm.js';
 import { LIVE_SYSTEM, liveUser, SUMMARY_SYSTEM } from './prompts.js';
 import { emptyStages } from './playbook.js';
 import {
@@ -274,7 +274,9 @@ export async function appendTurns(s, incoming) {
 async function maybeEvaluate(s) {
   const now = Date.now();
   if (s.evaluating) return;
-  if (!shouldEvaluate({ newTurns: s.pending, lastEvalAt: s.lastEvalAt, now })) return;
+  // nível gratuito do Gemini limita pedidos por minuto: intervalo mínimo maior entre avaliações
+  const minIntervalMs = +process.env.LIVE_MIN_INTERVAL_MS || (llmProvider() === 'gemini' ? 8000 : 5000);
+  if (!shouldEvaluate({ newTurns: s.pending, lastEvalAt: s.lastEvalAt, now, minIntervalMs })) return;
   s.evaluating = true;
   s.lastEvalAt = now;
   s.pending = [];

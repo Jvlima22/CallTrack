@@ -19,7 +19,7 @@ export async function analyzeCall(callId, liveCostUsd = 0) {
 
   const playbook = call.playbook_id.definition;
   const metrics  = computeMetrics(turns);
-  const { data, costUsd } = await callModel({
+  const { data, costUsd, model: usedModel } = await callModel({
     kind: 'postcall',
     model: process.env.POSTCALL_MODEL,
     system: POSTCALL_SYSTEM,
@@ -47,7 +47,7 @@ export async function analyzeCall(callId, liveCostUsd = 0) {
     {
       call_id:             callId,
       playbook_version:    playbook.version ?? call.playbook_id.version,
-      model:               process.env.POSTCALL_MODEL,
+      model:               usedModel,
       score,
       stages:              { ...stages, _observed: observed, _total: STAGE_ORDER.length },
       seller_talk_pct:     metrics.seller_talk_pct,

@@ -79,6 +79,23 @@ npm run seed -- "Nome da Empresa" "Seu Nome" voce@empresa.com seller
 npm run dev
 ```
 
+### Qual IA usar
+
+| Provedor | Como ativar | Custo |
+|---|---|---|
+| **Claude** (padrão) | `ANTHROPIC_API_KEY` com créditos em console.anthropic.com | ~US$ 0,35–0,65 por call de 30 min com a IA ao vivo; ~US$ 0,04 só com a análise pós-call (`LIVE_ENABLED=false`) |
+| **Google Gemini** | `GEMINI_API_KEY` do Google AI Studio (aistudio.google.com → Get API key) | Grátis no nível gratuito, com limite de pedidos por minuto |
+
+Sem `LLM_PROVIDER`, o CallTrack usa o Claude se `ANTHROPIC_API_KEY` estiver preenchida, senão o Gemini. Para forçar um deles: `LLM_PROVIDER=gemini` ou `LLM_PROVIDER=anthropic`.
+
+> No nível gratuito do Gemini, o Google pode usar o conteúdo enviado para melhorar os produtos dele. Use para testes (como o roteiro de teste), não para calls reais com clientes; para essas, use um plano pago.
+
+Para conferir a IA configurada (chave, modelos e uma avaliação de verdade com um trecho do roteiro de teste):
+
+```bash
+npm run llm:check
+```
+
 O seed imprime o token (`spc_...`) **uma única vez**. Guarde-o: ele serve para a extensão e para entrar no CRM.
 
 Abra **http://localhost:8787**. O backend entrega o `calltrack.html` já apontando para ele mesmo.
@@ -109,7 +126,7 @@ Na call:
 3. Ao terminar, clique em **Encerrar call**. A análise pós-call leva cerca de 30 s.
 4. O botão do CRM no painel abre o CallTrack já autenticado.
 
-**Sem a `ANTHROPIC_API_KEY` no `.env`, a captura funciona, mas não há etapas SPICED ao vivo, sugestões nem análise pós-call (a call fica como "Análise falhou").**
+**Sem uma chave de IA no `.env` (`ANTHROPIC_API_KEY` ou `GEMINI_API_KEY`), a captura funciona, mas não há etapas SPICED ao vivo, sugestões nem análise pós-call (a call fica como "Análise falhou").**
 
 ### Gravação de vídeo
 
@@ -218,7 +235,7 @@ cd backend
 npm test
 ```
 
-São 19 testes: rastreador de legendas, métricas, nota, regras do motor ao vivo (saúde da call, contexto por etapa, nomes de participantes), armazenamento dos vídeos e envio dos pedaços pela extensão.
+São 23 testes: rastreador de legendas, métricas, nota, regras do motor ao vivo (saúde da call, contexto por etapa, nomes de participantes), armazenamento dos vídeos, envio dos pedaços pela extensão e escolha/chamada do provedor de IA.
 
 ---
 
