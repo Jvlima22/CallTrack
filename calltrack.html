@@ -290,8 +290,8 @@ dialog::backdrop{background:rgba(10,15,25,.45)}
 
 /* Gravação */
 .rec-card video{width:100%;max-height:58vh;display:block;background:#000;border-radius:8px}
-.rec-card.collapsed video,.rec-card.collapsed .hint{display:none}
-.rec-card.collapsed .vtl{margin-top:0}
+.rec-card.collapsed :is(video,.vtl,.controls,.hint){display:none}
+.rec-card.collapsed .card-title{margin-bottom:0}
 .vid-toggle{height:28px;padding:0 8px;gap:6px;font-weight:500}
 .rec-card .card-title{flex-wrap:wrap;row-gap:4px}
 .rec-card .vid-toggle{flex:none;margin-left:auto}
@@ -1912,11 +1912,12 @@ function bindPlayer(){
   paint();
 }
 
-// Mostra ou esconde a imagem do vídeo; controles e linha do tempo continuam visíveis (o áudio segue tocando)
+// Recolhido, o card mostra só o cabeçalho; o vídeo pausa para não tocar sem controles visíveis
 function setVideoOpen(open){
   if (settings.videoOpen !== open){ settings.videoOpen = open; saveSettings(); }
   const card = $('#cdVideo .rec-card'), b = $('#cdVidToggle');
   if (!card || !b) return;
+  if (!open) $('#cdPlayer')?.pause();
   card.classList.toggle('collapsed', !open);
   b.innerHTML = `${open ? 'Recolher vídeo' : 'Expandir vídeo'} ${ICON.chevron(14)}`;
   b.setAttribute('aria-expanded', String(open));
@@ -1926,6 +1927,7 @@ function setVideoOpen(open){
 function seekCall(ms){
   const v = $('#cdPlayer');
   if (!v) return;
+  setVideoOpen(true);
   v.currentTime = videoTime(ms);
   v.play().catch(() => {});
   $('#cdVideo').scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -2009,11 +2011,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F9' && live){ e.preventDefault(); setMode('atend'); setView('live'); finishCall(); return; }
   if (typing || e.ctrlKey || e.altKey || e.metaKey) return;
   if ($('#dlgCrmCall').open){
-    const v = $('#cdPlayer'), k = e.key.toLowerCase();
-    if (v && (k === ' ' || k === 'k')){ e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    const k = e.key.toLowerCase(), v = settings.videoOpen ? $('#cdPlayer') : null;
+    if (k === 'v' && $('#cdPlayer')) setVideoOpen(!settings.videoOpen);
+    else if (v && (k === ' ' || k === 'k')){ e.preventDefault(); v.paused ? v.play() : v.pause(); }
     else if (v && k === 'j') v.currentTime = Math.max(0, v.currentTime - 10);
     else if (v && k === 'l') v.currentTime += 10;
-    else if (v && k === 'v') setVideoOpen(!settings.videoOpen);
     return;
   }
   if (e.key === '/'){ e.preventDefault(); $(settings.mode === 'crm' ? '#crmQ' : '#q').focus(); return; }

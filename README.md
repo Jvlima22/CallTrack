@@ -152,7 +152,7 @@ A alternância **Atendimentos / Reuniões · CRM** fica no topo, e o navegador l
 - Detalhe da call: dados editáveis (lead, empresa, ID do negócio), métricas (fala do vendedor, perguntas, maior monólogo, custo), resumo, etapas com justificativa, próximos passos, objeções e riscos, linha do tempo ao vivo e transcrição.
 - Busca, filtro por vendedor e período. A lista se atualiza sozinha a cada 30 s.
 - Se o arquivo for aberto direto do disco (`file://`), o CRM pede o endereço do servidor e o token.
-- **Calls gravadas:** player no detalhe da call, que abre recolhido (só controles e linha do tempo; o áudio toca normalmente). **Expandir vídeo** mostra a imagem, e o navegador lembra a escolha. O player tem velocidade de 0,75x a 2x e ±10 s. Os eventos aparecem como marcadores na linha do tempo, e a fala atual fica destacada na transcrição. Clicar numa fala, numa pergunta ou citação das etapas ou num evento leva direto àquele momento do vídeo.
+- **Calls gravadas:** player no detalhe da call, que abre recolhido (só o cabeçalho do card). **Expandir vídeo** mostra o vídeo e os controles, e o navegador lembra a escolha. Recolher pausa o vídeo; clicar num momento da call expande o player. O player tem velocidade de 0,75x a 2x e ±10 s. Os eventos aparecem como marcadores na linha do tempo, e a fala atual fica destacada na transcrição. Clicar numa fala, numa pergunta ou citação das etapas ou num evento leva direto àquele momento do vídeo.
 
 ### Guarda dos vídeos
 
